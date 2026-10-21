@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -17,28 +18,19 @@ import androidx.compose.ui.unit.dp
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
-
-data class CreateTaskFormData(
-    val title: String, val description: String, val assignees: String,
-    val project: String, val dueDate: String
-)
-
 @Composable
 fun CreateTaskScreen(
+    state: CreateTaskUiState,
     onBackClick: () -> Unit,
-    onCreateTask: (CreateTaskFormData) -> Unit,
+    onTitleChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
     onNavigateToAssignees: () -> Unit,
     onNavigateToProject: () -> Unit,
-    onNavigateToDate: () -> Unit
+    onNavigateToDate: () -> Unit,
+    onCreateTask: (CreateTaskFormData) -> Unit
 ) {
-    var title by rememberSaveable { mutableStateOf("") }
-    var description by rememberSaveable { mutableStateOf("") }
-    var assignees by rememberSaveable { mutableStateOf("") }
-    var project by rememberSaveable { mutableStateOf("") }
-    var dueDate by rememberSaveable { mutableStateOf("") }
 
     val focusManager = LocalFocusManager.current
-    val canCreate = title.isNotBlank()
 
     BackHandler(onBack = onBackClick)
 
@@ -52,29 +44,37 @@ fun CreateTaskScreen(
 
             Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 CoFlowGlassTextField(
-                    label = "Название", value = title, onValueChange = { title = it },
+                    label = "Название", value = state.title, onValueChange = onTitleChange,
                     placeholder = "Введите название задачи"
                 )
                 CoFlowGlassTextField(
-                    label = "Описание", value = description, onValueChange = { description = it.take(250) },
+                    label = "Описание", value = state.description, onValueChange = onDescriptionChange,
                     placeholder = "Введите описание задачи", singleLine = false, maxLength = 250
                 )
 
                 // Клик сработает по ВСЕМУ полю. Клавиатура не вылезет благодаря readOnly
                 CoFlowGlassTextField(
-                    label = "Исполнители", value = assignees, onValueChange = { assignees = it },
-                    placeholder = "Выберите исполнителей", leadingIcon = "person", trailingIcon = "chevron",
+                    label = "Исполнители",
+                    value = state.assignees.joinToString(", ") { it.name },
+                    onValueChange = {}, // Пустая лямбда, так как ввод заблокирован
+                    placeholder = "Выберите исполнителей",
+                    leadingIcon = "person",
+                    trailingIcon = "chevron",
                     onClick = { onNavigateToAssignees() }
                 )
 
                 CoFlowGlassTextField(
-                    label = "Проект", value = project, onValueChange = { project = it },
+                    label = "Проект",
+                    value = state.project,
+                    onValueChange = {}, // <--- Пустая лямбда
                     placeholder = "Выберите проект", leadingIcon = "folder", trailingIcon = "chevron",
                     onClick = { onNavigateToProject() }
                 )
 
                 CoFlowGlassTextField(
-                    label = "Дата окончания", value = dueDate, onValueChange = { dueDate = it },
+                    label = "Дата окончания",
+                    value = state.dueDate,
+                    onValueChange = {}, // <--- Пустая лямбда
                     placeholder = "Выберите дату", leadingIcon = "calendar", trailingIcon = "chevron",
                     onClick = { onNavigateToDate() },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
@@ -82,13 +82,13 @@ fun CreateTaskScreen(
                 )
             }
 
+
             CoFlowPrimaryButton(
                 text = "Создать задачу",
                 onClick = {
                     focusManager.clearFocus()
-                    onCreateTask(CreateTaskFormData(title.trim(), description.trim(), assignees.trim(), project.trim(), dueDate.trim()))
+                    onCreateTask(CreateTaskFormData(state.title.trim(), state.description.trim(), assignees = state.assignees, state.project.trim(), state.dueDate.trim()))
                 },
-                enabled = canCreate
 
             )
         }
@@ -100,11 +100,20 @@ fun CreateTaskScreen(
 private fun CreateTaskScreenPreview() {
     CoFlowTheme {
         CreateTaskScreen(
+            state = CreateTaskUiState(
+                title = "Купить пиво",
+                description = "В бристоле возле университета",
+                assignees = listOf(Assignee("1", "Степан Чуб", "chub@example.com", "СЧ", Color.Blue)),
+                project = "Балтика-9",
+                dueDate = "22.10.2026"
+            ),
             onBackClick = { println("Preview: Назад") },
             onCreateTask = { println("Preview: Создание задачи: $it") },
             onNavigateToAssignees = { println("Preview: Переход к выбору исполнителей") },
             onNavigateToProject = { println("Preview: Переход к выбору проекта") },
-            onNavigateToDate = { println("Preview: Переход к выбору даты") }
+            onNavigateToDate = { println("Preview: Переход к выбору даты") },
+            onTitleChange = {},
+            onDescriptionChange = {}
         )
     }
 }

@@ -18,6 +18,9 @@ import com.example.coflow.ui.tasks.ChoseProjectScreen
 import com.example.coflow.ui.tasks.CreateTaskScreen
 import com.example.coflow.ui.tasks.TasksScreen
 import com.example.coflow.ui.theme.CoFlowTheme
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.coflow.ui.tasks.CreateTaskViewModel
 
 object Screen {
     const val TASKS = "tasks"
@@ -47,25 +50,52 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(Screen.CREATE_TASK) {
+                            // 1. Инициализируем ViewModel для этого экрана
+                            val viewModel: CreateTaskViewModel = viewModel()
+
+                            // 2. Подписываемся на состояние (state)
+                            val state by viewModel.state.collectAsStateWithLifecycle()
+
+                            // 3. Передаем состояние и методы ViewModel в ваш UI-компонент
                             CreateTaskScreen(
+                                state = state, // <--- Передаем само состояние
                                 onBackClick = { navController.popBackStack() },
-                                onCreateTask = { formData ->
-                                    // TODO: Сохранение задачи через ViewModel
-                                    navController.popBackStack()
-                                },
+
+                                // Передаем обработчики изменения полей напрямую из ViewModel
+                                onTitleChange = viewModel::onTitleChange,
+                                onDescriptionChange = viewModel::onDescriptionChange,
+
                                 onNavigateToAssignees = { navController.navigate(Screen.CHOOSE_ASSIGNEE) },
                                 onNavigateToProject = { navController.navigate(Screen.CHOOSE_PROJECT) },
-                                onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) }
+                                onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) },
+
+                                // 4. Вызываем метод ViewModel для создания задачи
+                                onCreateTask = {
+                                    // ViewModel.onCreateTask принимает лямбду, которая вызовется после успешной валидации
+                                    viewModel.onCreateTask { formData ->
+                                        // TODO: Здесь вызов репозитория для сохранения formData (например, в Firebase)
+                                        // Пока просто выводим в лог и возвращаемся назад
+                                        println("Задача создана: $formData")
+                                        navController.popBackStack()
+                                    }
+                                }
                             )
                         }
 
                         // Экран выбора исполнителей
                         composable(Screen.CHOOSE_ASSIGNEE) {
+                            // 1. Получаем доступ к тому же самому CreateTaskViewModel, который работает на экране создания
+                            val createTaskEntry = remember(it) {
+                                navController.getBackStackEntry(Screen.CREATE_TASK)
+                            }
+                            val createTaskViewModel: CreateTaskViewModel = viewModel(createTaskEntry)
+
                             ChoseAssigneeScreen(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Здесь нужно получить выбранные данные и передать их обратно (например, через ViewModel)
-                                    // Пока просто возвращаемся назад
+                                onConfirmSelection = { selectedAssignee ->
+                                    // 2. Сохраняем выбранное значение прямо в ViewModel
+                                    createTaskViewModel.onAssigneesChange(selectedAssignee)
+                                    // 3. Возвращаемся назад. Экран создания задачи сам обновится, так как он слушает StateFlow!
                                     navController.popBackStack()
                                 }
                             )
@@ -73,21 +103,32 @@ class MainActivity : ComponentActivity() {
 
                         // Экран выбора проекта
                         composable(Screen.CHOOSE_PROJECT) {
+                            val createTaskEntry = remember(it) {
+                                navController.getBackStackEntry(Screen.CREATE_TASK)
+                            }
+                            val createTaskViewModel: CreateTaskViewModel = viewModel(createTaskEntry)
+
                             ChoseProjectScreen(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Обработать выбор проекта
+                                onConfirmSelection = { selectedProject ->
+                                    createTaskViewModel.onProjectChange(selectedProject)
                                     navController.popBackStack()
                                 }
                             )
                         }
 
+
                         // Экран выбора даты
                         composable(Screen.CHOOSE_DATE) {
+                            val createTaskEntry = remember(it) {
+                                navController.getBackStackEntry(Screen.CREATE_TASK)
+                            }
+                            val createTaskViewModel: CreateTaskViewModel = viewModel(createTaskEntry)
+
                             ChoseDateScreen(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Обработать выбор даты
+                                onConfirmSelection = { selectedDate ->
+                                    createTaskViewModel.onDueDateChange(selectedDate)
                                     navController.popBackStack()
                                 }
                             )
