@@ -26,9 +26,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.res.stringResource
 import com.example.coflow.R
+import androidx.compose.ui.res.pluralStringResource
 
 data class Assignee(val id: String, val name: String, val email: String, val initials: String, val avatarColor: Color)
 
+@Composable
+fun getSelectedText(selectedCount: Int): String {
+    return if (selectedCount == 0) {
+        stringResource(R.string.no_assignees_selected)
+    } else {
+        pluralStringResource(id = R.plurals.selected_assignees_count, count = selectedCount, selectedCount)
+    }
+}
 @Composable
 fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assignee>) -> Unit) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -45,16 +54,6 @@ fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assi
     val filteredAssignees = allAssignees.filter { it.name.contains(searchQuery, ignoreCase = true) || it.email.contains(searchQuery, ignoreCase = true) }
     val focusManager = LocalFocusManager.current
 
-    fun getSelectedText(count: Int): String {
-        if (count == 0) return "Никто не выбран"
-        val word = when {
-            count % 100 in 11..19 -> "исполнителей"
-            count % 10 == 1 -> "исполнитель"
-            count % 10 in 2..4 -> "исполнителя"
-            else -> "исполнителей"
-        }
-        return "Выбран $count $word"
-    }
 
     BackHandler(onBack = onBackClick)
 
