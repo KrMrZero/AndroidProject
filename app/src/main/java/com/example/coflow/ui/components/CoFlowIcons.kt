@@ -79,6 +79,23 @@ fun CoFlowIcon(
                 drawRoundRect(color, topLeft = point(5f, 4f), size = Size(14f * s, 17f * s), cornerRadius = CornerRadius(1.5f * s), style = stroke)
                 for (y in listOf(8f, 12f, 16f)) { drawLine(color, point(10f, y), point(16f, y), strokeWidth = 1.3f * s); drawCircle(color, radius = 0.8f * s, center = point(7.5f, y)) }
             }
+            "edit" -> {
+                val path = Path().apply { moveTo(3.5f * s, 20.5f * s); lineTo(3.5f * s, 16.5f * s); lineTo(15.5f * s, 4.5f * s); lineTo(16.5f * s, 3.5f * s); cubicTo(17.5f * s, 2.5f * s, 20.5f * s, 2.5f * s, 21.5f * s, 3.5f * s); cubicTo(22.5f * s, 4.5f * s, 22.5f * s, 7.5f * s, 21.5f * s, 8.5f * s); lineTo(8.5f * s, 20.5f * s); close() }
+                drawPath(path, color, style = stroke)
+                drawLine(color, point(14f, 6f), point(18f, 10f), strokeWidth)
+                val innerPath = Path().apply { moveTo(4.5f * s, 16.5f * s); lineTo(7.5f * s, 19.5f * s); lineTo(3.5f * s, 20.5f * s); close() }
+                drawPath(innerPath, color, style = stroke)
+            }
+            "folder_plus" -> {
+                val path = Path().apply { moveTo(4f * s, 20f * s); lineTo(4f * s, 6f * s); lineTo(9f * s, 6f * s); lineTo(11f * s, 8f * s); lineTo(20f * s, 8f * s); lineTo(20f * s, 14f * s); moveTo(4f * s, 20f * s); lineTo(11f * s, 20f * s) }
+                drawPath(path, color, style = stroke)
+                drawLine(color, point(16.5f, 15.5f), point(16.5f, 22.5f), 2.2f * s, StrokeCap.Round); drawLine(color, point(13f, 19f), point(20f, 19f), 2.2f * s, StrokeCap.Round)
+            }
+            "task_plus" -> {
+                val path = Path().apply { moveTo(5f * s, 20f * s); lineTo(5f * s, 6f * s); lineTo(9f * s, 6f * s); lineTo(9f * s, 4f * s); lineTo(15f * s, 4f * s); lineTo(15f * s, 6f * s); lineTo(19f * s, 6f * s); lineTo(19f * s, 14f * s); moveTo(9f * s, 7f * s); lineTo(15f * s, 7f * s); moveTo(5f * s, 20f * s); lineTo(11f * s, 20f * s) }
+                drawPath(path, color, style = stroke)
+                drawLine(color, point(16.5f, 14.5f), point(16.5f, 21.5f), 2.2f * s, StrokeCap.Round); drawLine(color, point(13f, 18f), point(20f, 18f), 2.2f * s, StrokeCap.Round)
+            }
         }
     }
 }

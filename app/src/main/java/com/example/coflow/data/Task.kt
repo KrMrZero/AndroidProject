@@ -11,5 +11,9 @@ data class Task(
     val projectName: String,
     val dueDate: LocalDate,
     val status: TaskStatus,
-    val isMine: Boolean = true
+    val isMine: Boolean = true,
+
+    val description: String = "",
+    val author: String = "",
+    val assignees: List<String> = emptyList()
 )

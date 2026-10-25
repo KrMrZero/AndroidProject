@@ -28,7 +28,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun ChoseDateScreen(
+fun ChooseDateScreen(
     state: CreateTaskUiState,
     onBackClick: () -> Unit,
     onMonthChange: (YearMonth) -> Unit,
@@ -42,12 +42,10 @@ fun ChoseDateScreen(
     BackHandler(onBack = onBackClick)
 
     Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
-        Column(
-            modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding()
-                .padding(horizontal = CoFlowSpacing.ScreenHorizontal)
-        ) {
+        Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
+
             CoFlowScreenHeader(
-                title = "Дата окончания",
+                title = stringResource(R.string.choose_date_header),
                 onBackClick = { focusManager.clearFocus(); onBackClick() }
             )
 
@@ -110,8 +108,12 @@ fun ChoseDateScreen(
             Spacer(Modifier.weight(1f))
 
             CoFlowPrimaryButton(
-                text = "Готово",
-                onClick = { focusManager.clearFocus(); onConfirm() }
+                text = stringResource(R.string.done_button),
+                onClick = {
+                    focusManager.clearFocus()
+                    onConfirmSelection(selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")))
+                },
+                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
             )
         }
     }

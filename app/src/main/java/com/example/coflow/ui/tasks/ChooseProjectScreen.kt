@@ -19,8 +19,6 @@ import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 
 @Composable
 fun ChoseProjectScreen(
@@ -42,49 +40,38 @@ fun ChoseProjectScreen(
                 .padding(horizontal = CoFlowSpacing.ScreenHorizontal)
         ) {
             CoFlowScreenHeader(
-                title = "Выбор проекта",
+                title = stringResource(R.string.choose_project_header),
                 onBackClick = { focusManager.clearFocus(); onBackClick() }
             )
 
             CoFlowGlassTextField(
-                value = state.projectSearchQuery,
-                onValueChange = onSearchQueryChange,
-                placeholder = "Название проекта",
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = stringResource(R.string.create_task_choose_project_name),
                 leadingIcon = "search",
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { focusManager.clearFocus() })
             )
 
             Spacer(Modifier.height(20.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Проекты", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
-                Text("${filteredProjects.size}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextSecondary)
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = stringResource(R.string.create_task_projects), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
+                Text(text = "${filteredProjects.size}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextSecondary)
             }
 
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
+            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
                 items(filteredProjects) { project ->
                     val isSelected = project == selectedProject
 
+
                     CoFlowGlassCard(
                         isSelected = isSelected,
-                        modifier = Modifier.height(52.dp).clickable { onSelectProject(project) }
+                        modifier = Modifier.height(52.dp).clickable { selectedProject = project }
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
                             Text(
-                                text = project,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
+                                text = project, fontSize = 14.sp, fontWeight = FontWeight.Medium,
                                 color = if (isSelected) CoFlowColors.Blue else CoFlowColors.TextPrimary
                             )
                         }
@@ -93,9 +80,10 @@ fun ChoseProjectScreen(
             }
 
             CoFlowPrimaryButton(
-                text = "Готово",
+                text = stringResource(R.string.done_button),
                 onClick = { focusManager.clearFocus(); onConfirm() },
-                enabled = state.canConfirmProject
+                enabled = state.canConfirmProject,
+                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
             )
         }
     }

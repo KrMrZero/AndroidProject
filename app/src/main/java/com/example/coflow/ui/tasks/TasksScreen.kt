@@ -7,13 +7,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +19,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,17 +32,16 @@ import com.example.coflow.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import com.example.coflow.R
 
 private enum class TaskGrouping { STATUS, DEADLINE }
 private data class TaskGroup(val id: String, val title: String, val tasks: List<Task>)
 
 @Composable
-fun TasksScreen(onNavigateToCreateTask: () -> Unit) {
+fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int) -> Unit, onNavigateToProjects: () -> Unit) {
     var grouping by remember { mutableStateOf(TaskGrouping.STATUS) }
     var selectedFilters by remember { mutableStateOf(setOf<String>()) }
     var collapsedGroups by remember { mutableStateOf(setOf("IN_PROGRESS")) }
-    var dialogTitle by remember { mutableStateOf<String?>(null) }
-    var dialogMessage by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
     var previousScroll by remember { mutableStateOf(0) }
@@ -58,10 +55,11 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit) {
     }
 
     val today = LocalDate.now()
+    val filterNoneText = stringResource(R.string.filter_none)
     val filteredTasks = TasksTestData.tasks.filter { task ->
-        if (selectedFilters.isEmpty()) true
+        if (selectedFilters.isEmpty() || selectedFilters.contains(filterNoneText)) true
         else {
-            val isMineSelected = selectedFilters.contains("Мои")
+            val isMineSelected = selectedFilters.contains(stringResource(R.string.filter_mine))
             val projectFilters = selectedFilters.filter { it.startsWith("Проект") }
             (isMineSelected && task.isMine) || projectFilters.any { task.projectName == it }
         }
@@ -69,21 +67,21 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit) {
 
     val groups = when (grouping) {
         TaskGrouping.STATUS -> listOf(
-            TaskGroup("TODO", "К исполнению", filteredTasks.filter { it.status == TaskStatus.TODO }),
-            TaskGroup("IN_PROGRESS", "В процессе", filteredTasks.filter { it.status == TaskStatus.IN_PROGRESS }),
-            TaskGroup("DONE", "Сделано", filteredTasks.filter { it.status == TaskStatus.DONE })
+            TaskGroup("TODO", stringResource(R.string.tasks_group_planned), filteredTasks.filter { it.status == TaskStatus.TODO }),
+            TaskGroup("IN_PROGRESS", stringResource(R.string.tasks_group_active), filteredTasks.filter { it.status == TaskStatus.IN_PROGRESS }),
+            TaskGroup("DONE", stringResource(R.string.tasks_group_completed), filteredTasks.filter { it.status == TaskStatus.DONE })
         )
         TaskGrouping.DEADLINE -> listOf(
-            TaskGroup("TODAY", "Сегодня", filteredTasks.filter { it.dueDate == today }.sortedBy { it.dueDate }),
-            TaskGroup("THIS_WEEK", "Эта неделя", filteredTasks.filter { it.dueDate.isAfter(today) && !it.dueDate.isAfter(today.plusDays(6)) }.sortedBy { it.dueDate }),
-            TaskGroup("NEXT_WEEK", "Следующая неделя", filteredTasks.filter { it.dueDate.isAfter(today.plusDays(6)) && !it.dueDate.isAfter(today.plusDays(13)) }.sortedBy { it.dueDate })
+            TaskGroup("TODAY", stringResource(R.string.tasks_group_today), filteredTasks.filter { it.dueDate == today }.sortedBy { it.dueDate }),
+            TaskGroup("THIS_WEEK", stringResource(R.string.tasks_group_this_week), filteredTasks.filter { it.dueDate.isAfter(today) && !it.dueDate.isAfter(today.plusDays(6)) }.sortedBy { it.dueDate }),
+            TaskGroup("NEXT_WEEK", stringResource(R.string.tasks_group_next_week), filteredTasks.filter { it.dueDate.isAfter(today.plusDays(6)) && !it.dueDate.isAfter(today.plusDays(13)) }.sortedBy { it.dueDate })
         )
     }
 
     val completedCount = filteredTasks.count { it.status == TaskStatus.DONE }
     val activeCount = filteredTasks.size - completedCount
     val filterButtonText = when {
-        selectedFilters.isEmpty() -> "Без фильтра"
+        selectedFilters.isEmpty() || selectedFilters.contains(filterNoneText) -> filterNoneText
         selectedFilters.size == 1 -> selectedFilters.first()
         else -> "Выбрано: ${selectedFilters.size}"
     }
@@ -92,25 +90,10 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit) {
             Column(modifier = Modifier.fillMaxSize().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
             // ИСПРАВЛЕНО: Единый, чистый заголовок без стрелки назад, но с подзаголовком и колокольчиком
             CoFlowScreenHeader(
-                title = "Мои задачи",
-                subtitle = "$activeCount активных · $completedCount завершены",
+                title = stringResource(R.string.my_tasks_header),
+                subtitle = "$activeCount ${stringResource(R.string.my_tasks_active)} · $completedCount ${stringResource(R.string.my_tasks_completed)}",
                 trailingContent = {
-                    Box {
-                        CoFlowGlassIconButton(
-                            iconName = "bell",
-                            onClick = {
-                                dialogTitle = "Уведомления"
-                                dialogMessage = "Интерфейс уведомлений ещё не реализован."
-                            }
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 3.dp, end = 3.dp)
-                                .size(6.dp)
-                                .background(CoFlowColors.Blue, CircleShape)
-                        )
-                    }
+                    NotificationBell()
                 }
             )
 
@@ -124,7 +107,8 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit) {
                     TaskGroupCard(
                         group = group,
                         expanded = group.id !in collapsedGroups,
-                        onToggle = { collapsedGroups = if (group.id in collapsedGroups) collapsedGroups - group.id else collapsedGroups + group.id }
+                        onToggle = { collapsedGroups = if (group.id in collapsedGroups) collapsedGroups - group.id else collapsedGroups + group.id },
+                        onTaskClick = { task -> onNavigateToTaskDetail(task.id) }
                     )
                 }
                 Spacer(Modifier.height(18.dp))
@@ -140,10 +124,11 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit) {
                             selectedFilters = selectedFilters,
                             filterButtonText = filterButtonText,
                             onFilterToggle = { option ->
-                                if (option == "Без фильтра") selectedFilters = emptySet()
-                                else {
+                                if (option == filterNoneText) {
+                                    selectedFilters = setOf(filterNoneText)
+                                } else {
                                     val newSet = selectedFilters.toMutableSet()
-                                    if (newSet.contains("Без фильтра")) newSet.remove("Без фильтра")
+                                    newSet.remove(filterNoneText)
                                     if (newSet.contains(option)) newSet.remove(option) else newSet.add(option)
                                     selectedFilters = newSet.toSet()
                                 }
@@ -151,35 +136,26 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit) {
                         )
                         Spacer(Modifier.width(16.dp))
 
-                        CoFlowFabButton(onClick = onNavigateToCreateTask)
+                        CoFlowFabButton(onClick = onNavigateToCreateTask, iconName = "task_plus")
                     }
                     Spacer(Modifier.height(7.dp))
 
                     CoFlowBottomNavigationBar(
                         items = listOf(
-                            NavItem(icon = "tasks", title = "Мои задачи", selected = true, onClick = {}),
-                            NavItem(icon = "folder", title = "Проекты", selected = false, onClick = { dialogTitle = "Проекты"; dialogMessage = "Интерфейс проектов ещё не реализован." }),
-                            NavItem(icon = "person", title = "Профиль", selected = false, onClick = { dialogTitle = "Профиль"; dialogMessage = "Интерфейс профиля ещё не реализован." })
+                            NavItem(icon = "tasks", title = stringResource(R.string.navigation_tasks), selected = true, onClick = {}),
+                            NavItem(icon = "folder", title = stringResource(R.string.navigation_projects), selected = false, onClick = onNavigateToProjects),
+                            NavItem(icon = "person", title = stringResource(R.string.navigation_profile), selected = false, onClick = { /* TODO: профиль */ })
                         )
                     )
                 }
             }
         }
 
-        if (dialogTitle != null) {
-            AlertDialog(
-                onDismissRequest = { dialogTitle = null },
-                title = { Text(text = dialogTitle!!, color = CoFlowColors.TextPrimary) },
-                text = { Text(text = dialogMessage, color = CoFlowColors.TextSecondary) },
-                confirmButton = { TextButton(onClick = { dialogTitle = null }) { Text("Понятно", color = CoFlowColors.Blue) } },
-                containerColor = Color(0xFFF4F7FF)
-            )
-        }
     }
 }
 
 @Composable
-private fun TaskGroupCard(group: TaskGroup, expanded: Boolean, onToggle: () -> Unit) {
+private fun TaskGroupCard(group: TaskGroup, expanded: Boolean, onToggle: () -> Unit, onTaskClick: (Task) -> Unit) {
     CoFlowGlassCard(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(text = group.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
@@ -198,7 +174,7 @@ private fun TaskGroupCard(group: TaskGroup, expanded: Boolean, onToggle: () -> U
             } else {
                 Spacer(Modifier.height(3.dp))
                 group.tasks.forEachIndexed { index, task ->
-                    TaskRow(task)
+                    TaskRow(task = task, onClick = { onTaskClick(task) })
                     if (index < group.tasks.lastIndex) {
                         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(CoFlowGlassStyles.BlueBorder.copy(alpha = 0.45f)))
                     }
@@ -209,9 +185,9 @@ private fun TaskGroupCard(group: TaskGroup, expanded: Boolean, onToggle: () -> U
 }
 
 @Composable
-private fun TaskRow(task: Task) {
+private fun TaskRow(task: Task, onClick: () -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd.MM.yy") }
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).clickable { onClick() }) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = task.title, fontSize = 12.sp, fontWeight = FontWeight.Medium,
@@ -220,7 +196,7 @@ private fun TaskRow(task: Task) {
             )
             if (task.dueDate.isBefore(LocalDate.now()) && task.status != TaskStatus.DONE) {
                 Spacer(Modifier.width(4.dp))
-                Text(text = "Просрочено", fontSize = 8.sp, color = CoFlowColors.Error)
+                Text(text = stringResource(R.string.task_outdated), fontSize = 8.sp, color = CoFlowColors.Error)
             }
         }
         Spacer(Modifier.height(3.dp))
@@ -246,18 +222,18 @@ private fun SortFilterPanel(
             var expanded by remember { mutableStateOf(false) }
             GlassControlSurface(modifier = Modifier.fillMaxWidth().clickable { expanded = true }) {
                 Column {
-                    Text(text = "Группировка", fontSize = 9.sp, color = CoFlowColors.TextSecondary)
+                    Text(text = stringResource(R.string.grouping_header), fontSize = 9.sp, color = CoFlowColors.TextSecondary)
                     Spacer(Modifier.height(3.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = if (grouping == TaskGrouping.STATUS) "По статусу" else "По сроку", fontSize = 11.sp, color = CoFlowColors.TextPrimary, maxLines = 1)
+                        Text(text = if (grouping == TaskGrouping.STATUS) stringResource(R.string.grouping_status) else stringResource(R.string.grouping_deadline), fontSize = 11.sp, color = CoFlowColors.TextPrimary, maxLines = 1)
                         Spacer(Modifier.width(3.dp))
                         Text("⌄", fontSize = 11.sp, color = CoFlowColors.Blue)
                     }
                 }
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, shape = RoundedCornerShape(16.dp), containerColor = Color(0xFFF4F8FF).copy(alpha = 0.62f), tonalElevation = 0.dp, shadowElevation = 0.dp, border = BorderStroke(1.dp, Color.White.copy(alpha = 0.82f))) {
-                GlassGroupingOption(title = "По статусу", selected = grouping == TaskGrouping.STATUS) { onGroupingChange(TaskGrouping.STATUS); expanded = false }
-                GlassGroupingOption(title = "По сроку", selected = grouping == TaskGrouping.DEADLINE) { onGroupingChange(TaskGrouping.DEADLINE); expanded = false }
+                GlassGroupingOption(title = stringResource(R.string.grouping_status), selected = grouping == TaskGrouping.STATUS) { onGroupingChange(TaskGrouping.STATUS); expanded = false }
+                GlassGroupingOption(title = stringResource(R.string.grouping_deadline), selected = grouping == TaskGrouping.DEADLINE) { onGroupingChange(TaskGrouping.DEADLINE); expanded = false }
             }
         }
 
@@ -265,7 +241,7 @@ private fun SortFilterPanel(
             var expanded by remember { mutableStateOf(false) }
             GlassControlSurface(modifier = Modifier.fillMaxWidth().clickable { expanded = true }) {
                 Column {
-                    Text(text = "Фильтр", fontSize = 9.sp, color = CoFlowColors.TextSecondary)
+                    Text(text = stringResource(R.string.filter_header), fontSize = 9.sp, color = CoFlowColors.TextSecondary)
                     Spacer(Modifier.height(3.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(text = filterButtonText, fontSize = 11.sp, color = CoFlowColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -275,7 +251,7 @@ private fun SortFilterPanel(
                 }
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, shape = RoundedCornerShape(16.dp), containerColor = Color(0xFFF4F8FF).copy(alpha = 0.62f), tonalElevation = 0.dp, shadowElevation = 0.dp, border = BorderStroke(1.dp, Color.White.copy(alpha = 0.82f))) {
-                listOf("Без фильтра", "Мои", "Проект 1", "Проект 2", "Проект 3").forEach { option ->
+                listOf(stringResource(R.string.filter_none), stringResource(R.string.filter_mine), "Проект 1", "Проект 2", "Проект 3").forEach { option ->
                     GlassFilterOption(title = option, selected = selectedFilters.contains(option)) { onFilterToggle(option) }
                 }
             }
@@ -319,5 +295,11 @@ private fun GlassFilterOption(title: String, selected: Boolean, onClick: () -> U
 @Preview(name = "Tasks Screen - Phone", showBackground = true, widthDp = 390, heightDp = 844, showSystemUi = true)
 @Composable
 private fun TasksScreenPreview() {
-    CoFlowTheme { TasksScreen(onNavigateToCreateTask = { println("🔥 PREVIEW: Нажата кнопка создания задачи (+)") }) }
+    CoFlowTheme {
+        TasksScreen(
+            onNavigateToCreateTask = { println("🔥 PREVIEW: Нажата кнопка создания задачи (+)") },
+            onNavigateToTaskDetail = { id -> println("PREVIEW: Нажата задача с ID: $id") },
+            onNavigateToProjects = { println("PREVIEW: Нажата кнопка Проекты") }
+        )
+    }
 }

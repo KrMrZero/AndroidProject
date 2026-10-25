@@ -3,17 +3,14 @@ package com.example.coflow.ui.tasks
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,16 +18,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.res.stringResource
+
+data class Assignee(val id: String, val name: String, val email: String, val initials: String, val avatarColor: Color)
 
 @Composable
-fun ChoseAssigneeScreen(
+fun getSelectedText(selectedCount: Int): String {
+    return if (selectedCount == 0) {
+        stringResource(R.string.no_assignees_selected)
+    } else {
+        pluralStringResource(id = R.plurals.selected_assignees_count, count = selectedCount, selectedCount)
+    }
+}
+@Composable
+fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assignee>) -> Unit) {
     onBackClick: () -> Unit,
     viewModel: CreateTaskViewModel = viewModel()
 ) {
@@ -42,20 +49,10 @@ fun ChoseAssigneeScreen(
         onBackClick()
     })
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(coFlowTasksBackgroundBrush())
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = CoFlowSpacing.ScreenHorizontal)
-        ) {
+    Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
+        Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
             CoFlowScreenHeader(
-                title = "Добавить исполнителя",
+                title = stringResource(com.example.coflow.R.string.choose_assignee_header),
                 onBackClick = {
                     focusManager.clearFocus()
                     viewModel.cancelAssigneeSelection()
@@ -66,7 +63,7 @@ fun ChoseAssigneeScreen(
             CoFlowGlassTextField(
                 value = state.assigneeSearchQuery,
                 onValueChange = viewModel::onAssigneeSearchQueryChange,
-                placeholder = "Имя или почта",
+                placeholder = stringResource(com.example.coflow.R.string.create_task_choose_assignee_placeholder),,
                 leadingIcon = "search",
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
@@ -76,25 +73,9 @@ fun ChoseAssigneeScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Исполнители",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = CoFlowColors.TextPrimary
-                )
-
-                Text(
-                    text = "${state.allAssignees.size}",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = CoFlowColors.TextSecondary
-                )
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = stringResource(R.string.create_task_assignee), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
+                Text(text = "${allAssignees.size}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextSecondary)
             }
 
             LazyColumn(
@@ -122,11 +103,7 @@ fun ChoseAssigneeScreen(
                 }
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 12.dp)
-            ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp)) {
                 Text(
                     text = getSelectedText(state.pendingSelectedCount),
                     modifier = Modifier.padding(bottom = 12.dp, start = 4.dp),
@@ -134,9 +111,8 @@ fun ChoseAssigneeScreen(
                     fontWeight = FontWeight.Medium,
                     color = CoFlowColors.TextPrimary
                 )
-
                 CoFlowPrimaryButton(
-                    text = "Добавить исполнителей",
+                    text = stringResource(R.string.add_assignee_button),
                     onClick = {
                         focusManager.clearFocus()
                         viewModel.confirmAssigneeSelection()
