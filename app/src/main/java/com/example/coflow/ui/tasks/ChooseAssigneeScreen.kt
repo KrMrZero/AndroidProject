@@ -3,6 +3,7 @@ package com.example.coflow.ui.tasks
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,74 +11,85 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.coflow.R
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.res.stringResource
-
-data class Assignee(val id: String, val name: String, val email: String, val initials: String, val avatarColor: Color)
 
 @Composable
-fun getSelectedText(selectedCount: Int): String {
-    return if (selectedCount == 0) {
-        stringResource(R.string.no_assignees_selected)
-    } else {
-        pluralStringResource(id = R.plurals.selected_assignees_count, count = selectedCount, selectedCount)
-    }
-}
-@Composable
-fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assignee>) -> Unit) {
+fun ChooseAssigneeScreen(
+    state: CreateTaskUiState,
     onBackClick: () -> Unit,
-    viewModel: CreateTaskViewModel = viewModel()
+    onAssigneeSearchQueryChange: (String) -> Unit,
+    onToggleAssignee: (String) -> Unit,
+    onConfirmSelection: (List<Assignee>) -> Unit
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
 
-    BackHandler(onBack = {
-        viewModel.cancelAssigneeSelection()
-        onBackClick()
-    })
+    // Возврат по системной кнопке "Назад"
+    BackHandler(onBack = { onBackClick() })
 
     Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
-        Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = CoFlowSpacing.ScreenHorizontal)
+        ) {
+            // Заголовок экрана
             CoFlowScreenHeader(
-                title = stringResource(com.example.coflow.R.string.choose_assignee_header),
-                onBackClick = {
-                    focusManager.clearFocus()
-                    viewModel.cancelAssigneeSelection()
-                    onBackClick()
-                }
+                title = stringResource(R.string.choose_assignee_header),
+                onBackClick = { focusManager.clearFocus(); onBackClick() }
             )
 
+            // Поиск по исполнителям
             CoFlowGlassTextField(
                 value = state.assigneeSearchQuery,
-                onValueChange = viewModel::onAssigneeSearchQueryChange,
-                placeholder = stringResource(com.example.coflow.R.string.create_task_choose_assignee_placeholder),,
+                onValueChange = onAssigneeSearchQueryChange,
+                placeholder = stringResource(R.string.create_task_choose_assignee_placeholder),
                 leadingIcon = "search",
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = { focusManager.clearFocus() }
-                )
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
             )
 
             Spacer(Modifier.height(20.dp))
 
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = stringResource(R.string.create_task_assignee), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
-                Text(text = "${allAssignees.size}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextSecondary)
+            // Заголовок списка и общее количество исполнителей
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(R.string.create_task_assignee),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = CoFlowColors.TextPrimary
+                )
+                Text(
+                    text = "${state.allAssignees.size}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = CoFlowColors.TextSecondary
+                )
             }
 
+            // Список результатов поиска
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -91,9 +103,9 @@ fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assi
 
                     CoFlowGlassCard(
                         isSelected = isSelected,
-                        modifier = Modifier.clickable {
-                            viewModel.togglePendingAssignee(assignee.id)
-                        }
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggleAssignee(assignee.id) }
                     ) {
                         AssigneeItem(
                             assignee = assignee,
@@ -103,7 +115,12 @@ fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assi
                 }
             }
 
-            Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp)) {
+            // Нижняя панель: счётчик выбранных + кнопка подтверждения
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 16.dp)
+            ) {
                 Text(
                     text = getSelectedText(state.pendingSelectedCount),
                     modifier = Modifier.padding(bottom = 12.dp, start = 4.dp),
@@ -115,13 +132,45 @@ fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assi
                     text = stringResource(R.string.add_assignee_button),
                     onClick = {
                         focusManager.clearFocus()
-                        viewModel.confirmAssigneeSelection()
-                        onBackClick()
+                        val selectedAssignees = state.pendingAssigneeIds.mapNotNull { id ->
+                            state.filteredAssignees.firstOrNull { it.id == id }
+                        }
+                        onConfirmSelection(selectedAssignees)
                     },
-                    enabled = state.canConfirmAssignees
+                    enabled = state.canConfirmAssignees,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
+    }
+}
+
+@Composable
+fun ChooseAssigneeRoute(
+    onBackClick: () -> Unit,
+    onConfirmSelection: (List<Assignee>) -> Unit,
+    viewModel: CreateTaskViewModel = viewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    ChooseAssigneeScreen(
+        state = state,
+        onBackClick = onBackClick,
+        onAssigneeSearchQueryChange = viewModel::onAssigneeSearchQueryChange,
+        onToggleAssignee = viewModel::togglePendingAssignee,
+        onConfirmSelection = { assignees ->
+            viewModel.confirmAssigneeSelection(assignees)
+            onConfirmSelection(assignees)
+        }
+    )
+}
+
+@Composable
+private fun getSelectedText(count: Int): String {
+    return if (count == 0) {
+        stringResource(R.string.no_assignees_selected)
+    } else {
+        pluralStringResource(R.plurals.selected_assignees_count, count, count)
     }
 }
 
@@ -198,19 +247,6 @@ private fun AssigneeItem(
     }
 }
 
-private fun getSelectedText(count: Int): String {
-    if (count == 0) return "Никто не выбран"
-
-    val word = when {
-        count % 100 in 11..19 -> "исполнителей"
-        count % 10 == 1 -> "исполнитель"
-        count % 10 in 2..4 -> "исполнителя"
-        else -> "исполнителей"
-    }
-
-    return "Выбран $count $word"
-}
-
 @Preview(
     name = "Выбор исполнителя",
     showBackground = true,
@@ -218,8 +254,14 @@ private fun getSelectedText(count: Int): String {
     heightDp = 844
 )
 @Composable
-private fun ChoseAssigneeScreenPreview() {
+private fun ChooseAssigneeScreenPreview() {
     CoFlowTheme {
-        ChoseAssigneeScreen(onBackClick = {})
+        ChooseAssigneeScreen(
+            state = CreateTaskUiState(),
+            onBackClick = {},
+            onAssigneeSearchQueryChange = {},
+            onToggleAssignee = {},
+            onConfirmSelection = {}
+        )
     }
 }
