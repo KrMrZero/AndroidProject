@@ -7,7 +7,7 @@ name: Ktlint on PR
 # Здесь выполняется только ktlint (Docker-экшен) над кодом PR: проект не
 # собирается и не запускается. Экшен закреплён по SHA.
 on:
-  pull_request_target:
+  pull_request:
     paths:
       - '**.kt'
       - '**.kts'
