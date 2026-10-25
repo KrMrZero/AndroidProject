@@ -28,16 +28,24 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun ChoseDateScreen(onBackClick: () -> Unit, onConfirmSelection: (String) -> Unit) {
-    var currentMonth by rememberSaveable { mutableStateOf(YearMonth.of(2027, 1)) }
-    var selectedDate by rememberSaveable { mutableStateOf(LocalDate.of(2027, 1, 7)) }
+fun ChoseDateScreen(
+    state: CreateTaskUiState,
+    onBackClick: () -> Unit,
+    onMonthChange: (YearMonth) -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
+    onConfirm: () -> Unit
+) {
     val focusManager = LocalFocusManager.current
+    val currentMonth = state.calendarMonth
+    val selectedDate = state.selectedDueDate
 
     BackHandler(onBack = onBackClick)
 
     Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
-        Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
-
+        Column(
+            modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding()
+                .padding(horizontal = CoFlowSpacing.ScreenHorizontal)
+        ) {
             CoFlowScreenHeader(
                 title = "Дата окончания",
                 onBackClick = { focusManager.clearFocus(); onBackClick() }
@@ -45,36 +53,56 @@ fun ChoseDateScreen(onBackClick: () -> Unit, onConfirmSelection: (String) -> Uni
 
             Box(
                 modifier = Modifier.fillMaxWidth()
-                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(24.dp), ambientColor = CoFlowGlassStyles.Shadow, spotColor = CoFlowGlassStyles.Shadow)
+                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(24.dp),
+                        ambientColor = CoFlowGlassStyles.Shadow, spotColor = CoFlowGlassStyles.Shadow)
                     .clip(RoundedCornerShape(24.dp))
                     .background(Color.White.copy(alpha = 0.85f))
                     .padding(16.dp)
             ) {
                 Column {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = currentMonth.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru"))).replaceFirstChar { it.titlecase(Locale("ru")) },
-                            fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary
+                            text = currentMonth.format(
+                                DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru"))
+                            ).replaceFirstChar { it.titlecase(Locale("ru")) },
+                            fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                            color = CoFlowColors.TextPrimary
                         )
                         Row {
-                            Box(modifier = Modifier.size(32.dp).clip(CircleShape).clickable { currentMonth = currentMonth.minusMonths(1) }, contentAlignment = Alignment.Center) {
-                                CoFlowIcon(name = "chevron_left", modifier = Modifier.size(16.dp), color = CoFlowColors.Blue, contentDescription = "Предыдущий месяц")
+                            Box(
+                                modifier = Modifier.size(32.dp).clip(CircleShape)
+                                    .clickable { onMonthChange(currentMonth.minusMonths(1)) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CoFlowIcon(name = "chevron_left", modifier = Modifier.size(16.dp),
+                                    color = CoFlowColors.Blue, contentDescription = "Предыдущий месяц")
                             }
                             Spacer(Modifier.width(8.dp))
-                            Box(modifier = Modifier.size(32.dp).clip(CircleShape).clickable { currentMonth = currentMonth.plusMonths(1) }, contentAlignment = Alignment.Center) {
-                                CoFlowIcon(name = "chevron", modifier = Modifier.size(16.dp), color = CoFlowColors.Blue, contentDescription = "Следующий месяц")
+                            Box(
+                                modifier = Modifier.size(32.dp).clip(CircleShape)
+                                    .clickable { onMonthChange(currentMonth.plusMonths(1)) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CoFlowIcon(name = "chevron", modifier = Modifier.size(16.dp),
+                                    color = CoFlowColors.Blue, contentDescription = "Следующий месяц")
                             }
                         }
                     }
                     Spacer(Modifier.height(16.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEach { day ->
-                            Text(text = day, modifier = Modifier.width(36.dp), fontSize = 12.sp, fontWeight = FontWeight.Medium, color = CoFlowColors.TextSecondary, textAlign = TextAlign.Center)
+                        listOf("Пн","Вт","Ср","Чт","Пт","Сб","Вс").forEach { day ->
+                            Text(text = day, modifier = Modifier.width(36.dp), fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium, color = CoFlowColors.TextSecondary,
+                                textAlign = TextAlign.Center)
                         }
                     }
                     Spacer(Modifier.height(8.dp))
                     CalendarGrid(currentMonth = currentMonth, selectedDate = selectedDate) { date ->
-                        if (date.month == currentMonth.month) selectedDate = date
+                        if (date.month == currentMonth.month) onDateSelected(date)
                     }
                 }
             }
@@ -83,10 +111,7 @@ fun ChoseDateScreen(onBackClick: () -> Unit, onConfirmSelection: (String) -> Uni
 
             CoFlowPrimaryButton(
                 text = "Готово",
-                onClick = {
-                    focusManager.clearFocus()
-                    onConfirmSelection(selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")))
-                }
+                onClick = { focusManager.clearFocus(); onConfirm() }
             )
         }
     }
@@ -137,5 +162,13 @@ private fun CalendarGrid(currentMonth: YearMonth, selectedDate: LocalDate, onDat
 @Preview(name = "Дата окончания", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun ChoseDateScreenPreview() {
-    CoFlowTheme { ChoseDateScreen(onBackClick = {}, onConfirmSelection = {}) }
+    CoFlowTheme {
+        ChoseDateScreen(
+            state = CreateTaskUiState(),
+            onBackClick = {},
+            onMonthChange = {},
+            onDateSelected = {},
+            onConfirm = {}
+        )
+    }
 }

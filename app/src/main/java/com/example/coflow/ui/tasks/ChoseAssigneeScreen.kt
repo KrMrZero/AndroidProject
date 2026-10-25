@@ -3,14 +3,17 @@ package com.example.coflow.ui.tasks
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -18,123 +21,229 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.clickable
-
-data class Assignee(val id: String, val name: String, val email: String, val initials: String, val avatarColor: Color)
 
 @Composable
-fun ChoseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assignee>) -> Unit) {
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    val allAssignees = remember {
-        listOf(
-            Assignee("1", "Анна Смирнова", "anna.s@example.com", "АС", Color(0xFF6B9AF3)),
-            Assignee("2", "Михаил Орлов", "m.orlov@example.com", "МО", Color(0xFFA3B8CC)),
-            Assignee("3", "Елена Волкова", "elena.v@example.com", "ЕВ", Color(0xFF86D3B5)),
-            Assignee("4", "Дмитрий Соколов", "d.sokolov@example.com", "ДС", Color(0xFF8BB8F8)),
-            Assignee("5", "Мария Козлова", "maria.k@example.com", "МК", Color(0xFFAFA3F8))
-        )
-    }
-    var selectedIds by remember { mutableStateOf(setOf("1")) }
-    val filteredAssignees = allAssignees.filter { it.name.contains(searchQuery, ignoreCase = true) || it.email.contains(searchQuery, ignoreCase = true) }
+fun ChoseAssigneeScreen(
+    onBackClick: () -> Unit,
+    viewModel: CreateTaskViewModel = viewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
 
-    fun getSelectedText(count: Int): String {
-        if (count == 0) return "Никто не выбран"
-        val word = when {
-            count % 100 in 11..19 -> "исполнителей"
-            count % 10 == 1 -> "исполнитель"
-            count % 10 in 2..4 -> "исполнителя"
-            else -> "исполнителей"
-        }
-        return "Выбран $count $word"
-    }
+    BackHandler(onBack = {
+        viewModel.cancelAssigneeSelection()
+        onBackClick()
+    })
 
-    BackHandler(onBack = onBackClick)
-
-    Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
-        Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
-
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(coFlowTasksBackgroundBrush())
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = CoFlowSpacing.ScreenHorizontal)
+        ) {
             CoFlowScreenHeader(
                 title = "Добавить исполнителя",
-                onBackClick = { focusManager.clearFocus(); onBackClick() }
+                onBackClick = {
+                    focusManager.clearFocus()
+                    viewModel.cancelAssigneeSelection()
+                    onBackClick()
+                }
             )
 
             CoFlowGlassTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
+                value = state.assigneeSearchQuery,
+                onValueChange = viewModel::onAssigneeSearchQueryChange,
                 placeholder = "Имя или почта",
                 leadingIcon = "search",
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { focusManager.clearFocus() })
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = { focusManager.clearFocus() }
+                )
             )
 
             Spacer(Modifier.height(20.dp))
 
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = "Исполнители", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
-                Text(text = "${allAssignees.size}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextSecondary)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Исполнители",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = CoFlowColors.TextPrimary
+                )
+
+                Text(
+                    text = "${state.allAssignees.size}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = CoFlowColors.TextSecondary
+                )
             }
 
-            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
-                items(filteredAssignees, key = { it.id }) { assignee ->
-                    val isSelected = selectedIds.contains(assignee.id)
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
+                items(
+                    items = state.filteredAssignees,
+                    key = { it.id }
+                ) { assignee ->
+                    val isSelected = assignee.id in state.pendingAssigneeIds
 
-                    // ИСПРАВЛЕНО: передаем isSelected в карточку
                     CoFlowGlassCard(
                         isSelected = isSelected,
                         modifier = Modifier.clickable {
-                            selectedIds = if (isSelected) selectedIds - assignee.id else selectedIds + assignee.id
+                            viewModel.togglePendingAssignee(assignee.id)
                         }
                     ) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(40.dp).background(assignee.avatarColor.copy(alpha = 0.2f), CircleShape), contentAlignment = Alignment.Center) {
-                                Text(text = assignee.initials, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = assignee.avatarColor)
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = assignee.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
-                                Spacer(Modifier.height(2.dp))
-                                Text(text = assignee.email, fontSize = 12.sp, color = CoFlowColors.TextSecondary)
-                            }
-                            Box(
-                                modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSelected) CoFlowColors.Blue else Color.White)
-                                    .border(1.5.dp, if (isSelected) CoFlowColors.Blue else CoFlowColors.TextSecondary.copy(alpha = 0.5f), RoundedCornerShape(6.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSelected) CoFlowIcon(name = "check", modifier = Modifier.size(14.dp), color = Color.White)
-                            }
-                        }
+                        AssigneeItem(
+                            assignee = assignee,
+                            isSelected = isSelected
+                        )
                     }
                 }
             }
 
-            Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 12.dp)
+            ) {
                 Text(
-                    text = getSelectedText(selectedIds.size),
+                    text = getSelectedText(state.pendingSelectedCount),
                     modifier = Modifier.padding(bottom = 12.dp, start = 4.dp),
-                    fontSize = 12.sp, fontWeight = FontWeight.Medium, color = CoFlowColors.TextPrimary
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = CoFlowColors.TextPrimary
                 )
+
                 CoFlowPrimaryButton(
                     text = "Добавить исполнителей",
                     onClick = {
                         focusManager.clearFocus()
-                        onConfirmSelection(allAssignees.filter { selectedIds.contains(it.id) })
+                        viewModel.confirmAssigneeSelection()
+                        onBackClick()
                     },
-                    enabled = selectedIds.isNotEmpty()
+                    enabled = state.canConfirmAssignees
                 )
             }
         }
     }
 }
 
-@Preview(name = "Выбор исполнителя", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun AssigneeItem(
+    assignee: Assignee,
+    isSelected: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = assignee.avatarColor.copy(alpha = 0.2f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = assignee.initials,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = assignee.avatarColor
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = assignee.name,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = CoFlowColors.TextPrimary
+            )
+
+            Spacer(Modifier.height(2.dp))
+
+            Text(
+                text = assignee.email,
+                fontSize = 12.sp,
+                color = CoFlowColors.TextSecondary
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(
+                    if (isSelected) CoFlowColors.Blue else Color.White
+                )
+                .border(
+                    width = 1.5.dp,
+                    color = if (isSelected) CoFlowColors.Blue
+                    else CoFlowColors.TextSecondary.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(6.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSelected) {
+                CoFlowIcon(
+                    name = "check",
+                    modifier = Modifier.size(14.dp),
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+private fun getSelectedText(count: Int): String {
+    if (count == 0) return "Никто не выбран"
+
+    val word = when {
+        count % 100 in 11..19 -> "исполнителей"
+        count % 10 == 1 -> "исполнитель"
+        count % 10 in 2..4 -> "исполнителя"
+        else -> "исполнителей"
+    }
+
+    return "Выбран $count $word"
+}
+
+@Preview(
+    name = "Выбор исполнителя",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 private fun ChoseAssigneeScreenPreview() {
-    CoFlowTheme { ChoseAssigneeScreen(onBackClick = {}, onConfirmSelection = {}) }
+    CoFlowTheme {
+        ChoseAssigneeScreen(onBackClick = {})
+    }
 }

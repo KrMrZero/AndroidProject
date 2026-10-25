@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,10 +72,7 @@ class MainActivity : ComponentActivity() {
 
                                 // 4. Вызываем метод ViewModel для создания задачи
                                 onCreateTask = {
-                                    // ViewModel.onCreateTask принимает лямбду, которая вызовется после успешной валидации
                                     viewModel.onCreateTask { formData ->
-                                        // TODO: Здесь вызов репозитория для сохранения formData (например, в Firebase)
-                                        // Пока просто выводим в лог и возвращаемся назад
                                         println("Задача создана: $formData")
                                         navController.popBackStack()
                                     }
@@ -82,22 +80,21 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Экран выбора исполнителей
+                        /// Экран выбора исполнителей
                         composable(Screen.CHOOSE_ASSIGNEE) {
-                            // 1. Получаем доступ к тому же самому CreateTaskViewModel, который работает на экране создания
                             val createTaskEntry = remember(it) {
                                 navController.getBackStackEntry(Screen.CREATE_TASK)
                             }
                             val createTaskViewModel: CreateTaskViewModel = viewModel(createTaskEntry)
 
+                            // Инициализируем pending-состояние ОДИН раз
+                            LaunchedEffect(Unit) {
+                                createTaskViewModel.onOpenAssigneePicker()
+                            }
+
                             ChoseAssigneeScreen(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = { selectedAssignee ->
-                                    // 2. Сохраняем выбранное значение прямо в ViewModel
-                                    createTaskViewModel.onAssigneesChange(selectedAssignee)
-                                    // 3. Возвращаемся назад. Экран создания задачи сам обновится, так как он слушает StateFlow!
-                                    navController.popBackStack()
-                                }
+                                viewModel = createTaskViewModel   // <-- передаём общий VM
                             )
                         }
 
@@ -107,11 +104,22 @@ class MainActivity : ComponentActivity() {
                                 navController.getBackStackEntry(Screen.CREATE_TASK)
                             }
                             val createTaskViewModel: CreateTaskViewModel = viewModel(createTaskEntry)
+                            val state by createTaskViewModel.state.collectAsStateWithLifecycle()
+
+                            LaunchedEffect(Unit) {
+                                createTaskViewModel.onOpenProjectPicker()
+                            }
 
                             ChoseProjectScreen(
-                                onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = { selectedProject ->
-                                    createTaskViewModel.onProjectChange(selectedProject)
+                                state = state,
+                                onBackClick = {
+                                    createTaskViewModel.cancelProjectSelection()
+                                    navController.popBackStack()
+                                },
+                                onSearchQueryChange = createTaskViewModel::onProjectSearchQueryChange,
+                                onSelectProject = createTaskViewModel::onPendingProjectChange,
+                                onConfirm = {
+                                    createTaskViewModel.confirmProjectSelection()
                                     navController.popBackStack()
                                 }
                             )
@@ -124,11 +132,19 @@ class MainActivity : ComponentActivity() {
                                 navController.getBackStackEntry(Screen.CREATE_TASK)
                             }
                             val createTaskViewModel: CreateTaskViewModel = viewModel(createTaskEntry)
+                            val state by createTaskViewModel.state.collectAsStateWithLifecycle()
+
+                            LaunchedEffect(Unit) {
+                                createTaskViewModel.onOpenDatePicker()
+                            }
 
                             ChoseDateScreen(
+                                state = state,
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = { selectedDate ->
-                                    createTaskViewModel.onDueDateChange(selectedDate)
+                                onMonthChange = createTaskViewModel::onCalendarMonthChange,
+                                onDateSelected = createTaskViewModel::onDateSelected,
+                                onConfirm = {
+                                    createTaskViewModel.confirmDateSelection()
                                     navController.popBackStack()
                                 }
                             )
