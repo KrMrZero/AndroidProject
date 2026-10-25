@@ -86,6 +86,11 @@
     <string name="filter_none">Без фильтра</string>
     <string name="filter_mine">Мои</string>
 
+    <!-- Уведомления -->
+    <string name="notification_title">Уведомления</string>
+    <string name="notification_message">Интерфейс уведомлений ещё не реализован.</string>
+    <string name="dialog_ok">Понятно</string>
+
     <!-- Навигация -->
     <string name="navigation_tasks">Мои задачи</string>
     <string name="navigation_projects">Проекты</string>

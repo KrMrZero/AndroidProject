@@ -87,6 +87,11 @@
         <string name="filter_none">No filter</string>
         <string name="filter_mine">Mine</string>
 
+        <!-- Notifications -->
+        <string name="notification_title">Notifications</string>
+        <string name="notification_message">Notifications interface not implemented yet.</string>
+        <string name="dialog_ok">Got it</string>
+
         <!-- Навигация -->
         <string name="navigation_tasks">My tasks</string>
         <string name="navigation_projects">Projects</string>

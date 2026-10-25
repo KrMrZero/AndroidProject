@@ -9,12 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,10 +61,6 @@ fun ProjectsScreen(
     onNavigateToCreateProject: () -> Unit,
     onNavigateToTasks: () -> Unit
 ) {
-    // Стейт для всплывающего окна (колокольчик)
-    var dialogTitle by remember { mutableStateOf<String?>(null) }
-    var dialogMessage by remember { mutableStateOf("") }
-
     // Стейт для скролла и скрытия нижней панели
     val listState = rememberLazyListState()
     var isBottomPanelVisible by remember { mutableStateOf(true) }
@@ -111,23 +104,7 @@ fun ProjectsScreen(
             title = stringResource(R.string.projects_header),
             subtitle = "${state.activeCount} ${stringResource(R.string.my_tasks_active)} · ${state.archivedCount} ${stringResource(R.string.my_tasks_completed)}",
             trailingContent = {
-                Box {
-                    CoFlowGlassIconButton(
-                        iconName = "bell",
-                        onClick = {
-                            dialogTitle = "Уведомления"
-                            dialogMessage = "Интерфейс уведомлений ещё не реализован."
-                        }
-                    )
-                    // Синяя точка-индикатор
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 3.dp, end = 3.dp)
-                            .size(6.dp)
-                            .background(CoFlowColors.Blue, CircleShape)
-                    )
-                }
+                NotificationBell()
             }
         )
 
@@ -205,21 +182,6 @@ fun ProjectsScreen(
                     )
                 )
             }
-        }
-
-        // Всплывающее окно уведомлений
-        if (dialogTitle != null) {
-            AlertDialog(
-                onDismissRequest = { dialogTitle = null },
-                title = { Text(text = dialogTitle!!, color = CoFlowColors.TextPrimary) },
-                text = { Text(text = dialogMessage, color = CoFlowColors.TextSecondary) },
-                confirmButton = {
-                    TextButton(onClick = { dialogTitle = null }) {
-                        Text("Понятно", color = CoFlowColors.Blue)
-                    }
-                },
-                containerColor = Color(0xFFF4F7FF)
-            )
         }
     }
 }

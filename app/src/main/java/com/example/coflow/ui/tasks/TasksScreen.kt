@@ -7,13 +7,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,8 +42,6 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int
     var grouping by remember { mutableStateOf(TaskGrouping.STATUS) }
     var selectedFilters by remember { mutableStateOf(setOf<String>()) }
     var collapsedGroups by remember { mutableStateOf(setOf("IN_PROGRESS")) }
-    var dialogTitle by remember { mutableStateOf<String?>(null) }
-    var dialogMessage by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
     var previousScroll by remember { mutableStateOf(0) }
@@ -97,22 +92,7 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int
                 title = stringResource(R.string.my_tasks_header),
                 subtitle = "$activeCount ${stringResource(R.string.my_tasks_active)} · $completedCount ${stringResource(R.string.my_tasks_completed)}",
                 trailingContent = {
-                    Box {
-                        CoFlowGlassIconButton(
-                            iconName = "bell",
-                            onClick = {
-                                dialogTitle = "Уведомления"
-                                dialogMessage = "Интерфейс уведомлений ещё не реализован."
-                            }
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 3.dp, end = 3.dp)
-                                .size(6.dp)
-                                .background(CoFlowColors.Blue, CircleShape)
-                        )
-                    }
+                    NotificationBell()
                 }
             )
 
@@ -162,22 +142,13 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int
                         items = listOf(
                             NavItem(icon = "tasks", title = stringResource(R.string.navigation_tasks), selected = true, onClick = {}),
                             NavItem(icon = "folder", title = stringResource(R.string.navigation_projects), selected = false, onClick = onNavigateToProjects),
-                            NavItem(icon = "person", title = stringResource(R.string.navigation_profile), selected = false, onClick = { dialogTitle = "Профиль"; dialogMessage = "Интерфейс профиля ещё не реализован." })
+                            NavItem(icon = "person", title = stringResource(R.string.navigation_profile), selected = false, onClick = { /* TODO: профиль */ })
                         )
                     )
                 }
             }
         }
 
-        if (dialogTitle != null) {
-            AlertDialog(
-                onDismissRequest = { dialogTitle = null },
-                title = { Text(text = dialogTitle!!, color = CoFlowColors.TextPrimary) },
-                text = { Text(text = dialogMessage, color = CoFlowColors.TextSecondary) },
-                confirmButton = { TextButton(onClick = { dialogTitle = null }) { Text("Понятно", color = CoFlowColors.Blue) } },
-                containerColor = Color(0xFFF4F7FF)
-            )
-        }
     }
 }
 
