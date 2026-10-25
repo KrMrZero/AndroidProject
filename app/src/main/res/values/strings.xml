@@ -87,10 +87,29 @@
     <string name="filter_none">Без фильтра</string>
     <string name="filter_mine">Мои</string>
 
+    <!-- Уведомления -->
+    <string name="notification_title">Уведомления</string>
+    <string name="notification_message">Интерфейс уведомлений ещё не реализован.</string>
+    <string name="dialog_ok">Понятно</string>
+
     <!-- Навигация -->
     <string name="navigation_tasks">Мои задачи</string>
     <string name="navigation_projects">Проекты</string>
     <string name="navigation_profile">Профиль</string>
+
+    <!-- Экран Проекты -->
+    <string name="projects_header">Проекты</string>
+    <string name="project_search_placeholder">Название проекта</string>
+    <string name="project_status_in_progress">В работе</string>
+    <string name="project_status_archive">Архив</string>
+    <string name="project_filter_title">Фильтр</string>
+    <string name="project_empty_state">Проекты не найдены</string>
+
+    <!-- Фильтры проектов -->
+    <string name="project_filter_all">Все</string>
+    <string name="project_filter_management">Управление</string>
+    <string name="project_filter_participation">Участие</string>
+    <string name="project_filter_archive">Архив</string>
 
     <!-- Количество выбранных исполнителей -->
     <string name="no_assignees_selected">Никто не выбран</string>

@@ -12,6 +12,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.coflow.ui.auth.AuthRoute
+import com.example.coflow.ui.projects.ProjectsRoute
 import com.example.coflow.ui.tasks.ChooseAssigneeScreen
 import com.example.coflow.ui.tasks.ChooseDateScreen
 import com.example.coflow.ui.tasks.ChooseProjectScreen
@@ -26,8 +27,8 @@ object Screen {
     const val CHOOSE_ASSIGNEE = "choose_assignee"
     const val CHOOSE_PROJECT = "choose_project"
     const val CHOOSE_DATE = "choose_date"
-
     const val TASK_DETAIL = "task_detail/{taskId}"
+    const val PROJECTS = "projects"
 }
 
 class MainActivity : ComponentActivity() {
@@ -43,10 +44,26 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
 
                     NavHost(navController = navController, startDestination = Screen.TASKS) {
+                        // Экран Мои задачи
                         composable(Screen.TASKS) {
                             TasksScreen(
                                 onNavigateToCreateTask = { navController.navigate(Screen.CREATE_TASK) },
-                                onNavigateToTaskDetail = { taskId -> navController.navigate("task_detail/$taskId") }
+                                onNavigateToTaskDetail = { taskId -> navController.navigate("task_detail/$taskId") },
+                                onNavigateToProjects = { navController.navigate(Screen.PROJECTS) }
+                            )
+                        }
+
+                        // Экран Проекты
+                        composable(Screen.PROJECTS) {
+                            ProjectsRoute(
+                                onNavigateToCreateProject = {
+                                    android.widget.Toast.makeText(
+                                        this@MainActivity,
+                                        "Добавление проекта ляля",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                },
+                                onNavigateToTasks = { navController.popBackStack() }
                             )
                         }
 
@@ -66,7 +83,7 @@ class MainActivity : ComponentActivity() {
                                     onEditClick = {
                                         android.widget.Toast.makeText(
                                             this@MainActivity,
-                                            "Редактирование ляляля",
+                                            "Редактирование ляля",
                                             android.widget.Toast.LENGTH_SHORT
                                         ).show()
                                     }
@@ -74,6 +91,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        // Экран создания задачи
                         composable(Screen.CREATE_TASK) {
                             CreateTaskRoute(
                                 onBackClick = { navController.popBackStack() },
