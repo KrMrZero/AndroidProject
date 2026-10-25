@@ -60,8 +60,9 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int
     }
 
     val today = LocalDate.now()
+    val filterNoneText = stringResource(R.string.filter_none)
     val filteredTasks = TasksTestData.tasks.filter { task ->
-        if (selectedFilters.isEmpty()) true
+        if (selectedFilters.isEmpty() || selectedFilters.contains(filterNoneText)) true
         else {
             val isMineSelected = selectedFilters.contains(stringResource(R.string.filter_mine))
             val projectFilters = selectedFilters.filter { it.startsWith("Проект") }
@@ -85,7 +86,7 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int
     val completedCount = filteredTasks.count { it.status == TaskStatus.DONE }
     val activeCount = filteredTasks.size - completedCount
     val filterButtonText = when {
-        selectedFilters.isEmpty() -> stringResource(R.string.filter_none)
+        selectedFilters.isEmpty() || selectedFilters.contains(filterNoneText) -> filterNoneText
         selectedFilters.size == 1 -> selectedFilters.first()
         else -> "Выбрано: ${selectedFilters.size}"
     }
@@ -143,10 +144,11 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int
                             selectedFilters = selectedFilters,
                             filterButtonText = filterButtonText,
                             onFilterToggle = { option ->
-                                if (option == "Без фильтра") selectedFilters = emptySet()
-                                else {
+                                if (option == filterNoneText) {
+                                    selectedFilters = setOf(filterNoneText)
+                                } else {
                                     val newSet = selectedFilters.toMutableSet()
-                                    if (newSet.contains("Без фильтра")) newSet.remove("Без фильтра")
+                                    newSet.remove(filterNoneText)
                                     if (newSet.contains(option)) newSet.remove(option) else newSet.add(option)
                                     selectedFilters = newSet.toSet()
                                 }
