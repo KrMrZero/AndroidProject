@@ -1,6 +1,7 @@
 package com.example.coflow
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -8,15 +9,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.coflow.data.TasksTestData
 import com.example.coflow.ui.auth.AuthRoute
 import com.example.coflow.ui.projects.ProjectsRoute
-import com.example.coflow.ui.tasks.ChooseAssigneeScreen
-import com.example.coflow.ui.tasks.ChooseDateScreen
-import com.example.coflow.ui.tasks.ChooseProjectScreen
+import com.example.coflow.ui.tasks.ChooseAssigneeRoute
+import com.example.coflow.ui.tasks.ChooseDateRoute
+import com.example.coflow.ui.tasks.ChooseProjectRoute
 import com.example.coflow.ui.tasks.CreateTaskRoute
+import com.example.coflow.ui.tasks.CreateTaskViewModel
 import com.example.coflow.ui.tasks.TaskDetailScreen
 import com.example.coflow.ui.tasks.TasksScreen
 import com.example.coflow.ui.theme.CoFlowTheme
@@ -42,6 +49,7 @@ class MainActivity : ComponentActivity() {
 
                 if (isAuthenticated) {
                     val navController = rememberNavController()
+                    val createTaskViewModel: CreateTaskViewModel = viewModel()
 
                     NavHost(navController = navController, startDestination = Screen.TASKS) {
                         // Экран Мои задачи
@@ -70,21 +78,21 @@ class MainActivity : ComponentActivity() {
                         // Экран просмотра задачи
                         composable(
                             route = Screen.TASK_DETAIL,
-                            arguments = listOf(androidx.navigation.navArgument("taskId") { type = androidx.navigation.NavType.IntType })
+                            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
                         ) { backStackEntry ->
                             val taskId = backStackEntry.arguments?.getInt("taskId")
                             // Ищем задачу в тестовых данных по ID
-                            val task = com.example.coflow.data.TasksTestData.tasks.find { it.id == taskId }
+                            val task = TasksTestData.tasks.find { it.id == taskId }
 
                             if (task != null) {
                                 TaskDetailScreen(
                                     task = task,
                                     onBackClick = { navController.popBackStack() },
                                     onEditClick = {
-                                        android.widget.Toast.makeText(
+                                        Toast.makeText(
                                             this@MainActivity,
                                             "Редактирование ляля",
-                                            android.widget.Toast.LENGTH_SHORT
+                                            Toast.LENGTH_SHORT
                                         ).show()
                                     }
                                 )
@@ -101,41 +109,44 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToAssignees = { navController.navigate(Screen.CHOOSE_ASSIGNEE) },
                                 onNavigateToProject = { navController.navigate(Screen.CHOOSE_PROJECT) },
-                                onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) }
+                                onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) },
+                                viewModel = createTaskViewModel
                             )
                         }
 
                         // Экран выбора исполнителей
                         composable(Screen.CHOOSE_ASSIGNEE) {
-                            ChooseAssigneeScreen(
+                            ChooseAssigneeRoute(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Здесь нужно получить выбранные данные и передать их обратно (например, через ViewModel)
-                                    // Пока просто возвращаемся назад
+                                onConfirmSelection = { assignees ->
+                                    createTaskViewModel.confirmAssigneeSelection(assignees)
                                     navController.popBackStack()
-                                }
+                                },
+                                viewModel = createTaskViewModel
                             )
                         }
 
                         // Экран выбора проекта
                         composable(Screen.CHOOSE_PROJECT) {
-                            ChooseProjectScreen(
+                            ChooseProjectRoute(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Обработать выбор проекта
+                                onConfirmSelection = { project ->
+                                    createTaskViewModel.confirmProjectSelection(project)
                                     navController.popBackStack()
-                                }
+                                },
+                                viewModel = createTaskViewModel
                             )
                         }
 
                         // Экран выбора даты
                         composable(Screen.CHOOSE_DATE) {
-                            ChooseDateScreen(
+                            ChooseDateRoute(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Обработать выбор даты
+                                onConfirmSelection = { date ->
+                                    createTaskViewModel.confirmDateSelection(date)
                                     navController.popBackStack()
-                                }
+                                },
+                                viewModel = createTaskViewModel
                             )
                         }
                     }

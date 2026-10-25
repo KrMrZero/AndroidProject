@@ -26,7 +26,6 @@ import com.example.coflow.ui.theme.*
 import java.time.format.DateTimeFormatter
 import com.example.coflow.R
 import androidx.compose.ui.res.pluralStringResource
-import org.checkerframework.checker.units.qual.s
 import androidx.annotation.StringRes
 
 @Composable
@@ -212,6 +211,7 @@ private fun TagChip(text: String) {
 }
 
 @StringRes
+// Статус задачи
 private fun getStatusTextRes(status: TaskStatus): Int {
     return when (status) {
         TaskStatus.TODO -> R.string.tasks_group_planned
