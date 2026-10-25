@@ -31,6 +31,14 @@ import androidx.compose.ui.res.pluralStringResource
 data class Assignee(val id: String, val name: String, val email: String, val initials: String, val avatarColor: Color)
 
 @Composable
+fun getSelectedText(selectedCount: Int): String {
+    return if (selectedCount == 0) {
+        stringResource(R.string.no_assignees_selected)
+    } else {
+        pluralStringResource(id = R.plurals.selected_assignees_count, count = selectedCount, selectedCount)
+    }
+}
+@Composable
 fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assignee>) -> Unit) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val allAssignees = remember {
@@ -45,6 +53,7 @@ fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assi
     var selectedIds by remember { mutableStateOf(setOf("1")) }
     val filteredAssignees = allAssignees.filter { it.name.contains(searchQuery, ignoreCase = true) || it.email.contains(searchQuery, ignoreCase = true) }
     val focusManager = LocalFocusManager.current
+
 
     BackHandler(onBack = onBackClick)
 
@@ -106,21 +115,8 @@ fun ChooseAssigneeScreen(onBackClick: () -> Unit, onConfirmSelection: (List<Assi
             }
 
             Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp)) {
-                val selectedCount = selectedIds.size
-
-                // Определяем текст с учетом специального случая для 0
-                val selectedText = if (selectedCount == 0) {
-                    stringResource(R.string.no_assignees_selected)
-                } else {
-                    pluralStringResource(
-                        id = R.plurals.selected_assignees_count,
-                        count = selectedCount,
-                        selectedCount
-                    )
-                }
-
                 Text(
-                    text = selectedText,
+                    text = getSelectedText(selectedIds.size),
                     modifier = Modifier.padding(bottom = 12.dp, start = 4.dp),
                     fontSize = 12.sp, fontWeight = FontWeight.Medium, color = CoFlowColors.TextPrimary
                 )

@@ -95,7 +95,7 @@
         <string name="navigation_profile">Profile</string>
 
         <!-- Количество выбранных исполнителей -->
-        <string name="no_assignees_selected">Никто не выбран</string>
+        <string name="no_assignees_selected">No one is chosen</string>
 
         <plurals name="selected_assignees_count">
             <item quantity="one">Selected %d assignee</item>
