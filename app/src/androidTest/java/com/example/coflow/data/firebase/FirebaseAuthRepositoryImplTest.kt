@@ -2,56 +2,60 @@ package com.example.coflow.data.firebase
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/**
+ * Интеграционные тесты авторизации на Firebase Auth/Firestore Emulator.
+ *
+ * Эмуляторы настраиваются в [FirebaseEmulatorConfig], а почта в каждом тесте
+ * уникальна, чтобы прогоны не мешали друг другу.
+ */
 @RunWith(AndroidJUnit4::class)
 class FirebaseAuthRepositoryImplTest {
-
     private lateinit var repository: AuthRepository
 
     @Before
     fun setup() {
+        FirebaseEmulatorConfig.connect()
         repository = FirebaseAuthRepositoryImpl()
     }
 
     @Test
-    fun testRegisterAndLogin_Success() = runBlocking {
-        val randomEmail = "test_${System.currentTimeMillis()}@example.com"
-        val password = "password123"
-        val name = "Тестовый Пользователь"
+    fun registerAndLogin_returnsSameUser() {
+        runBlocking {
+            val email = "test_${System.currentTimeMillis()}@example.com"
+            val password = "password123"
+            val name = "Тестовый Пользователь"
 
-        // 1. Тестируем регистрацию
-        val registerResult = repository.register(randomEmail, password, name)
-        assertTrue("Регистрация должна пройти успешно", registerResult.isSuccess)
+            val registered = repository.register(email, password, name).getOrThrow()
+            assertTrue("UID не должен быть пустым", registered.id.isNotBlank())
+            assertEquals(email, registered.email)
+            assertEquals(name, registered.name)
 
-        val uid = registerResult.getOrNull()
-        assertNotNull("UID не должен быть пустым", uid)
-
-        // 2. Тестируем вход
-        val loginResult = repository.login(randomEmail, password)
-        assertTrue("Вход должен пройти успешно", loginResult.isSuccess)
-        assertEquals("UID после входа должен совпадать", uid, loginResult.getOrNull())
-
-        // 3. Тестируем получение текущего пользователя
-        val currentUid = repository.getCurrentUserUid()
-        assertEquals("Текущий UID должен совпадать", uid, currentUid)
+            val loggedIn = repository.login(email, password).getOrThrow()
+            assertEquals("UID после входа должен совпадать", registered.id, loggedIn.id)
+            assertEquals(email, loggedIn.email)
+            assertEquals(registered.id, repository.getCurrentUserUid())
+        }
     }
 
     @Test
-    fun testLogin_WrongPassword_Failure() = runBlocking {
-        val email = "test_wrong_${System.currentTimeMillis()}@example.com"
-        val password = "password123"
+    fun loginWithWrongPassword_returnsFailure() {
+        runBlocking {
+            val email = "wrong_password_${System.currentTimeMillis()}@example.com"
+            val password = "password123"
 
-        // Сначала регистрируем
-        repository.register(email, password, "Test")
+            repository.register(email, password, "Test").getOrThrow()
 
-        // Пытаемся войти с неверным паролем
-        val result = repository.login(email, "wrong_password")
+            val result = repository.login(email, "wrong_password")
 
-        assertTrue("Вход с неверным паролем должен вернуть ошибку", result.isFailure)
-        println("Текст ошибки от Firebase: ${result.exceptionOrNull()?.message}")
+            assertTrue("Вход с неверным паролем должен вернуть ошибку", result.isFailure)
+            assertNotNull(result.exceptionOrNull())
+        }
     }
 }

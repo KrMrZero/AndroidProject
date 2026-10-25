@@ -8,7 +8,7 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 // Модель данных задачи для Firestore
-data class Task(
+data class TaskSchema(
     val id: String = "",
     val projectRef: DocumentReference? = null,
     val authorRef: DocumentReference? = null,
@@ -33,7 +33,7 @@ data class Task(
     }
 
     companion object {
-        fun fromDocument(doc: DocumentSnapshot): Task? {
+        fun fromDocument(doc: DocumentSnapshot): TaskSchema? {
             if (!doc.exists()) return null
 
             val deadlineTimestamp = doc.getTimestamp("deadline")
@@ -48,7 +48,7 @@ data class Task(
 
             val statusInt = (doc.getLong("status") ?: 0L).toInt()
 
-            return Task(
+            return TaskSchema(
                 id = doc.id,
                 projectRef = doc.getDocumentReference("projectRef"),
                 authorRef = doc.getDocumentReference("authorRef"),

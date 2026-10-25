@@ -1,5 +1,6 @@
 package com.example.coflow.data.firebase
 
+import com.example.coflow.models.TaskModel
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -11,39 +12,43 @@ class FirebaseTaskRepositoryImpl(
 
     private val taskCollection: CollectionReference = db.collection("Task")
 
-    override suspend fun getById(id: String): Task? {
-        val snapshot = taskCollection.document(id).get().await()
-        return Task.fromDocument(snapshot)
-    }
-
-    override suspend fun getByTitle(title: String): List<Task> {
-        val querySnapshot = taskCollection
-            .whereEqualTo("title", title)
-            .get()
-            .await()
-
-        return querySnapshot.documents.mapNotNull { Task.fromDocument(it) }
-    }
-
-    override suspend fun getByProjectId(id: String): List<Task> {
-        val projectRef = db.collection("Project").document(id)
-        val querySnapshot = taskCollection
-            .whereEqualTo("projectRef", projectRef)
-            .get()
-            .await()
-
-        return querySnapshot.documents.mapNotNull { Task.fromDocument(it) }
-    }
-
-    override suspend fun addTask(task: Task): Task {
-        return if (task.id.isNotBlank()) {
-            taskCollection.document(task.id).set(task.toMap()).await()
-            task
-        } else {
-            val docRef = taskCollection.add(task.toMap()).await()
-            task.copy(id = docRef.id)
+    override suspend fun getById(id: String): Result<TaskModel> = try {
+        val snap = taskCollection.document(id).get().await()
+        val schema = TaskSchema.fromDocument(snap)
+            ?: throw Exception("Задача не найдена")
+        Result.success(schema.toDomain())
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка загрузки задачи"))
         }
+
+
+    override suspend fun getByTitle(title: String): Result<List<TaskModel>> = try {
+        val qs = taskCollection.whereEqualTo("title", title).get().await()
+        Result.success(qs.documents.mapNotNull { TaskSchema.fromDocument(it)?.toDomain() })
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка поиска задач"))
     }
+
+    override suspend fun getByProjectId(id: String): Result<List<TaskModel>> = try {
+        val projectRef = db.collection("Project").document(id)
+        val qs = taskCollection.whereEqualTo("projectRef", projectRef).get().await()
+        Result.success(qs.documents.mapNotNull { TaskSchema.fromDocument(it)?.toDomain() })
+    } catch (e: Exception) {
+        Result.failure(Exception(e.message ?: "Ошибка загрузки задач проекта"))
+    }
+
+    override suspend fun addTask(task: TaskModel): Result<TaskModel> = try {
+        val docRef = taskCollection.document()                        // id генерим на клиенте
+        val schema = task.toSchema(db).copy(id = docRef.id)           // ← вот здесь db
+        docRef.set(schema.toMap()).await()
+        val created = docRef.get().await()
+            .toObject(TaskSchema::class.java)
+            ?: throw Exception("Не удалось прочитать созданную задачу")
+        Result.success(created.toDomain())
+    } catch (e: Exception) {
+        Result.failure(Exception(e.message ?: "Ошибка создания задачи"))
+    }
+
 
     override suspend fun deleteTask(id: String) {
         taskCollection.document(id).delete().await()
