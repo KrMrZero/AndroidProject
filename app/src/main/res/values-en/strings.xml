@@ -92,4 +92,18 @@
         <string name="navigation_projects">Projects</string>
         <string name="navigation_profile">Profile</string>
 
+        <!-- Экран Проекты -->
+        <string name="projects_header">Projects</string>
+        <string name="project_search_placeholder">Project name</string>
+        <string name="project_status_in_progress">In progress</string>
+        <string name="project_status_archive">Archive</string>
+        <string name="project_filter_title">Filter</string>
+        <string name="project_empty_state">No projects found</string>
+
+        <!-- Фильтры проектов -->
+        <string name="project_filter_all">All</string>
+        <string name="project_filter_management">Management</string>
+        <string name="project_filter_participation">Participation</string>
+        <string name="project_filter_archive">Archive</string>
+
 </resources>

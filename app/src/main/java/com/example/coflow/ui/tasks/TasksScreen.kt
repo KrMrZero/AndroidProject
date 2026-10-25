@@ -41,7 +41,7 @@ private enum class TaskGrouping { STATUS, DEADLINE }
 private data class TaskGroup(val id: String, val title: String, val tasks: List<Task>)
 
 @Composable
-fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int) -> Unit) {
+fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int) -> Unit, onNavigateToProjects: () -> Unit) {
     var grouping by remember { mutableStateOf(TaskGrouping.STATUS) }
     var selectedFilters by remember { mutableStateOf(setOf<String>()) }
     var collapsedGroups by remember { mutableStateOf(setOf("IN_PROGRESS")) }
@@ -154,14 +154,14 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int
                         )
                         Spacer(Modifier.width(16.dp))
 
-                        CoFlowFabButton(onClick = onNavigateToCreateTask)
+                        CoFlowFabButton(onClick = onNavigateToCreateTask, iconName = "task_plus")
                     }
                     Spacer(Modifier.height(7.dp))
 
                     CoFlowBottomNavigationBar(
                         items = listOf(
                             NavItem(icon = "tasks", title = stringResource(R.string.navigation_tasks), selected = true, onClick = {}),
-                            NavItem(icon = "folder", title = stringResource(R.string.navigation_projects), selected = false, onClick = { dialogTitle = "Проекты"; dialogMessage = "Интерфейс проектов ещё не реализован." }),
+                            NavItem(icon = "folder", title = stringResource(R.string.navigation_projects), selected = false, onClick = onNavigateToProjects),
                             NavItem(icon = "person", title = stringResource(R.string.navigation_profile), selected = false, onClick = { dialogTitle = "Профиль"; dialogMessage = "Интерфейс профиля ещё не реализован." })
                         )
                     )
@@ -325,7 +325,8 @@ private fun TasksScreenPreview() {
     CoFlowTheme {
         TasksScreen(
             onNavigateToCreateTask = { println("🔥 PREVIEW: Нажата кнопка создания задачи (+)") },
-            onNavigateToTaskDetail = { id -> println("PREVIEW: Нажата задача с ID: $id") } // <--- ДОБАВИЛИ ВОТ ЭТО
+            onNavigateToTaskDetail = { id -> println("PREVIEW: Нажата задача с ID: $id") },
+            onNavigateToProjects = { println("PREVIEW: Нажата кнопка Проекты") }
         )
     }
 }
