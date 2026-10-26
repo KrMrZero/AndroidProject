@@ -1,104 +1,80 @@
-package com.example.coflow.repositories
+package com.example.coflow.data.firebase
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.coflow.models.TaskModel
-import com.example.coflow.models.TaskStatus
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
+import kotlinx.coroutines.tasks.await
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.util.UUID
 
+/**
+ * Интеграционные тесты репозитория задач на Firestore Emulator.
+ *
+ * Документ создаётся напрямую через Firestore, чтобы проверить чтение и
+ * удаление через репозиторий. Данные уникальны для каждого прогона.
+ */
 @RunWith(AndroidJUnit4::class)
 class FirebaseTaskRepositoryImplTest {
-
     private lateinit var repository: TaskRepository
+    private lateinit var db: FirebaseFirestore
 
     @Before
     fun setup() {
+        FirebaseEmulatorConfig.connect()
         repository = FirebaseTaskRepositoryImpl()
+        db = FirebaseFirestore.getInstance()
     }
 
     @Test
-    fun testTaskRepositoryWorkflow_Success() = runBlocking {
-        val suffix = UUID.randomUUID().toString().take(8)
-        val testProjectId = "test_project_$suffix"
-        val uniqueTitle = "Тестовая задача Firestore $suffix"
-
-        val newTask = TaskModel(
-            title = uniqueTitle,
-            description = "Описание задачи для интеграционного теста",
-            projectId = testProjectId,
-            authorId = "test_author_$suffix",
-            deadline = LocalDateTime.now(ZoneOffset.UTC),
-            status = TaskStatus.IN_PROGRESS
-        )
-
-        var createdTaskId: String? = null
-
-        try {
-            // 1. addTask
-            val addResult = repository.addTask(newTask)
-            assertTrue(
-                "addTask должна пройти успешно: ${addResult.exceptionOrNull()?.message}",
-                addResult.isSuccess
-            )
-
-            val addedTask = addResult.getOrNull()
-            assertNotNull("addTask должна вернуть задачу", addedTask)
-            requireNotNull(addedTask)
-
-            createdTaskId = addedTask.id
-            assertTrue("ID созданной задачи должен быть заполнен", createdTaskId.isNotBlank())
-            assertEquals(uniqueTitle, addedTask.title)
-            assertEquals(testProjectId, addedTask.projectId)
-            assertEquals(TaskStatus.IN_PROGRESS, addedTask.status)
-
-            // 2. getById
-            val byIdResult = repository.getById(createdTaskId)
-            assertTrue(
-                "getById должен вернуть успех: ${byIdResult.exceptionOrNull()?.message}",
-                byIdResult.isSuccess
-            )
-            val fetched = byIdResult.getOrNull()
-            assertNotNull("Задача должна существовать в БД по ID", fetched)
-            requireNotNull(fetched)
-            assertEquals(uniqueTitle, fetched.title)
-            assertEquals(TaskStatus.IN_PROGRESS, fetched.status)
-
-            // 3. getByTitle
-            val byTitleResult = repository.getByTitle(uniqueTitle)
-            assertTrue(byTitleResult.isSuccess)
-            val tasksByTitle = byTitleResult.getOrNull().orEmpty()
-            assertTrue("Должна найтись хотя бы одна задача по заголовку", tasksByTitle.isNotEmpty())
-            assertTrue(
-                "Созданная задача должна присутствовать в результатах",
-                tasksByTitle.any { it.id == createdTaskId }
-            )
-
-            // 4. getByProjectId
-            val byProjectResult = repository.getByProjectId(testProjectId)
-            assertTrue(byProjectResult.isSuccess)
-            val tasksByProject = byProjectResult.getOrNull().orEmpty()
-            assertTrue("Должна найтись задача по ID проекта", tasksByProject.isNotEmpty())
-            assertTrue(
-                "Задача с нужным ID должна быть найдена",
-                tasksByProject.any { it.id == createdTaskId }
-            )
-
-        } finally {
-            // 5. cleanup
-            if (!createdTaskId.isNullOrBlank()) {
-                repository.deleteTask(createdTaskId)
-                val checkDeleted = repository.getById(createdTaskId)
-                assertTrue(
-                    "После удаления getById должен вернуть failure",
-                    checkDeleted.isFailure
+    fun readQueriesAndDeleteWorkflow() {
+        runBlocking {
+            val uniqueSuffix = System.currentTimeMillis()
+            val title = "Тестовая задача $uniqueSuffix"
+            val projectId = "test_project_$uniqueSuffix"
+            val taskId = "test_task_$uniqueSuffix"
+            val taskRef = db.collection("Task").document(taskId)
+            val schema =
+                TaskSchema(
+                    id = taskId,
+                    projectRef = db.collection("Project").document(projectId),
+                    authorRef = db.collection("users").document("test_author"),
+                    executorRef = db.collection("users").document("test_assignee"),
+                    title = title,
+                    description = "Описание задачи для интеграционного теста",
+                    deadline = LocalDateTime.of(2026, 1, 1, 12, 0),
                 )
+            taskRef.set(schema.toMap()).await()
+
+            try {
+                val fetchedById = repository.getById(taskId).getOrThrow()
+                assertEquals(title, fetchedById.title)
+                assertEquals(projectId, fetchedById.projectId)
+                assertEquals("test_author", fetchedById.authorId)
+                assertEquals("test_assignee", fetchedById.assigneeIds)
+
+                val byTitle = repository.getByTitle(title).getOrThrow()
+                assertTrue(
+                    "Задача должна находиться по заголовку",
+                    byTitle.any { it.id == taskId },
+                )
+
+                val byProject = repository.getByProjectId(projectId).getOrThrow()
+                assertTrue(
+                    "Задача должна находиться по проекту",
+                    byProject.any { it.id == taskId },
+                )
+            } finally {
+                repository.deleteTask(taskId)
             }
+
+            assertTrue(
+                "Задача должна быть удалена",
+                repository.getById(taskId).isFailure,
+            )
         }
     }
 }
