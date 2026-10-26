@@ -16,21 +16,41 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
 import java.time.format.DateTimeFormatter
 
+
+enum class TaskStatusUi {
+    TODO, IN_PROGRESS, DONE
+}
+
+data class TaskDetailUiState(
+    val title: String,
+    val status: TaskStatusUi,
+    val projectName: String,
+    val description: String,
+    val author: String,
+    val assignees: List<String>,
+    val dueDateFormatted: String,
+    val isOverdue: Boolean,
+    val canEdit: Boolean,
+    val showBottomAction: Boolean,
+    val bottomActionText: String
+)
 @Composable
 fun TaskDetailScreen(
-    task: Task,
+    state: TaskDetailUiState,
     onBackClick: () -> Unit,
-    onEditClick: () -> Unit
+    onEditClick: () -> Unit,
+    onBottomActionClick: () -> Unit
 ) {
     BackHandler(onBack = onBackClick)
-    val formatter = DateTimeFormatter.ofPattern("dd.MM.yy")
 
     Box(
         modifier = Modifier
@@ -42,8 +62,8 @@ fun TaskDetailScreen(
                 title = "Задача",
                 onBackClick = onBackClick,
                 trailingContent = {
-                    // Карандаш (показываем только если статус TODO)
-                    if (task.status == TaskStatus.TODO) {
+                    // Карандаш (показываем только если статус "в процессе")
+                    if (state.canEdit) {
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -77,7 +97,7 @@ fun TaskDetailScreen(
 
                         // Название
                         Text(
-                            text = task.title,
+                            text = state.title,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = CoFlowColors.TextPrimary
@@ -85,8 +105,8 @@ fun TaskDetailScreen(
 
                         // Теги
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TagChip(text = getStatusText(task.status))
-                            TagChip(text = task.projectName)
+                            TagChip(text = getStatusText(state.status))
+                            TagChip(text = state.projectName)
                         }
 
                         // Описание
@@ -94,7 +114,7 @@ fun TaskDetailScreen(
                             Text("Описание", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = task.description.ifBlank { "Описание отсутствует" },
+                                text = state.description.ifBlank { "Описание отсутствует" },
                                 fontSize = 13.sp,
                                 color = CoFlowColors.TextSecondary
                             )
@@ -105,7 +125,7 @@ fun TaskDetailScreen(
                             Text("Автор задачи", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = task.author.ifBlank { "Неизвестно" },
+                                text = state.author.ifBlank { "Неизвестно" },
                                 fontSize = 13.sp,
                                 color = CoFlowColors.TextSecondary
                             )
@@ -123,9 +143,9 @@ fun TaskDetailScreen(
                                 Spacer(Modifier.width(12.dp))
 
                                 val assigneeText = when {
-                                    task.assignees.isEmpty() -> "Нет исполнителей"
-                                    task.assignees.size == 1 -> task.assignees.first()
-                                    else -> "Вы и еще ${task.assignees.size - 1} участник(а)"
+                                    state.assignees.isEmpty() -> "Нет исполнителей"
+                                    state.assignees.size == 1 -> state.assignees.first()
+                                    else -> "Вы и еще ${state.assignees.size - 1} участник(а)"
                                 }
 
                                 Text(
@@ -155,9 +175,9 @@ fun TaskDetailScreen(
                                 )
                                 Spacer(Modifier.width(12.dp))
                                 Text(
-                                    task.dueDate.format(formatter),
+                                    state.dueDateFormatted,
                                     fontSize = 13.sp,
-                                    color = if (task.dueDate.isBefore(java.time.LocalDate.now()) && task.status != TaskStatus.DONE) CoFlowColors.Error else CoFlowColors.TextPrimary
+                                    color = if (state.isOverdue) CoFlowColors.Error else CoFlowColors.TextPrimary
                                 )
                             }
                         }
@@ -167,10 +187,10 @@ fun TaskDetailScreen(
             }
 
             // Нижняя кнопка
-            if (task.status != TaskStatus.DONE) {
+            if (state.showBottomAction) {
                 CoFlowPrimaryButton(
-                    text = if (task.status == TaskStatus.TODO) "Взять задачу" else "Выполнить",
-                    onClick = { /* TODO: София подвяжет смену статуса */ },
+                    text = state.bottomActionText,
+                    onClick = onBottomActionClick,
                     modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
                 )
             }
@@ -197,10 +217,86 @@ private fun TagChip(text: String) {
     }
 }
 
-private fun getStatusText(status: TaskStatus): String {
+private fun getStatusText(status: TaskStatusUi): String {
     return when (status) {
-        TaskStatus.TODO -> "К исполнению"
-        TaskStatus.IN_PROGRESS -> "В процессе"
-        TaskStatus.DONE -> "Сделано"
+        TaskStatusUi.TODO -> "К исполнению"
+        TaskStatusUi.IN_PROGRESS -> "В процессе"
+        TaskStatusUi.DONE -> "Сделано"
+    }
+}
+
+
+@Preview(name = "В процессе (Просрочено)", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+fun TaskDetailScreen_InProgressOverdue_Preview() {
+    CoFlowTheme {
+        TaskDetailScreen(
+            state = TaskDetailUiState(
+                title = "Разработать новый онбординг для пользователей",
+                status = TaskStatusUi.IN_PROGRESS,
+                projectName = "Мобильное приложение",
+                description = "Нужно сделать 3 экрана с анимацией и кнопкой пропуска.",
+                author = "Алексей Смирнов",
+                assignees = listOf("Мария Иванова", "Ты"),
+                dueDateFormatted = "24.10.26",
+                isOverdue = true, // Дата красная
+                canEdit = false,
+                showBottomAction = true,
+                bottomActionText = "Выполнить"
+            ),
+            onBackClick = {},
+            onEditClick = {},
+            onBottomActionClick = {}
+        )
+    }
+}
+
+@Preview(name = "К исполнению (Можно редактировать)", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+fun TaskDetailScreen_Todo_Preview() {
+    CoFlowTheme {
+        TaskDetailScreen(
+            state = TaskDetailUiState(
+                title = "Обновить иконки в навигации",
+                status = TaskStatusUi.TODO,
+                projectName = "Дизайн-система",
+                description = "", // Проверка пустого описания
+                author = "Елена Козлова",
+                assignees = emptyList(), // Проверка пустых исполнителей
+                dueDateFormatted = "30.10.26",
+                isOverdue = false,
+                canEdit = true, // Покажет карандаш
+                showBottomAction = true,
+                bottomActionText = "Взять задачу"
+            ),
+            onBackClick = {},
+            onEditClick = {},
+            onBottomActionClick = {}
+        )
+    }
+}
+
+@Preview(name = "Сделано (Без нижней кнопки)", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun TaskDetailScreen_Done_Preview() {
+    CoFlowTheme {
+        TaskDetailScreen(
+            state = TaskDetailUiState(
+                title = "Провести ревью кода модуля авторизации",
+                status = TaskStatusUi.DONE,
+                projectName = "Бэкенд",
+                description = "Все замечания исправлены, код утвержден.",
+                author = "Дмитрий Петров",
+                assignees = listOf("Ты"),
+                dueDateFormatted = "20.10.26",
+                isOverdue = false,
+                canEdit = false, // Карандаша нет
+                showBottomAction = false, // Кнопки внизу нет
+                bottomActionText = ""
+            ),
+            onBackClick = {},
+            onEditClick = {},
+            onBottomActionClick = {}
+        )
     }
 }
