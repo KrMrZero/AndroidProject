@@ -12,78 +12,115 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 class FirebaseTaskRepositoryImpl(
-    private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : TaskRepository {
-
     private val taskCollection: CollectionReference = db.collection("tasks")
     private val projectCollection: CollectionReference = db.collection("projects")
     private val userCollection: CollectionReference = db.collection("users")
 
-    override suspend fun getById(id: String): Result<TaskModel> = try {
-        val snap = taskCollection.document(id).get().await()
-        val task = fromDocument(snap) ?: throw Exception("Задача не найдена")
-        Result.success(task)
-    } catch (e: Exception) {
-        Result.failure(Exception(e.message ?: "Ошибка загрузки задачи"))
-    }
+    override suspend fun getById(id: String): Result<TaskModel> =
+        try {
+            val task =
+                fromDocument(taskCollection.document(id).get().await())
+                    ?: throw Exception("Задача не найдена")
+            Result.success(task)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка загрузки задачи"))
+        }
 
-    override suspend fun getByTitle(title: String): Result<List<TaskModel>> = try {
-        val qs = taskCollection.whereEqualTo("title", title).get().await()
-        Result.success(qs.documents.mapNotNull { fromDocument(it) })
-    } catch (e: Exception) {
-        Result.failure(Exception(e.message ?: "Ошибка поиска задач"))
-    }
+    override suspend fun getByTitle(title: String): Result<List<TaskModel>> =
+        try {
+            val documents =
+                taskCollection
+                    .whereEqualTo("title", title)
+                    .get()
+                    .await()
+                    .documents
+            Result.success(documents.mapNotNull { fromDocument(it) })
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка поиска задач"))
+        }
 
-    override suspend fun getByProjectId(id: String): Result<List<TaskModel>> = try {
-        val projectRef = projectCollection.document(id)
-        val qs = taskCollection.whereEqualTo("projectId", projectRef).get().await()
-        Result.success(qs.documents.mapNotNull { fromDocument(it) })
-    } catch (e: Exception) {
-        Result.failure(Exception(e.message ?: "Ошибка загрузки задач проекта"))
-    }
+    override suspend fun getByProjectId(id: String): Result<List<TaskModel>> =
+        try {
+            val projectDocument = projectCollection.document(id)
+            val documents =
+                taskCollection
+                    .whereEqualTo("projectId", projectDocument)
+                    .get()
+                    .await()
+                    .documents
+            Result.success(documents.mapNotNull { fromDocument(it) })
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка загрузки задач проекта"))
+        }
 
-    override suspend fun addTask(task: TaskModel): Result<TaskModel> = try {
-        val docRef = taskCollection.document()
-        val toWrite = task.copy(id = docRef.id)
-        docRef.set(toWrite.toMap()).await()
+    override suspend fun addTask(task: TaskModel): Result<TaskModel> =
+        try {
+            val taskDocument = taskCollection.document()
+            val toWrite = task.copy(id = taskDocument.id)
+            taskDocument.set(toWrite.toMap()).await()
 
-        val created = fromDocument(docRef.get().await())
-            ?: throw Exception("Не удалось прочитать созданную задачу")
+            val created =
+                fromDocument(taskDocument.get().await())
+                    ?: throw Exception("Не удалось прочитать созданную задачу")
+            Result.success(created)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка создания задачи"))
+        }
 
-        Result.success(created)
-    } catch (e: Exception) {
-        Result.failure(Exception(e.message ?: "Ошибка создания задачи"))
-    }
+    override suspend fun updateTask(task: TaskModel): Result<TaskModel> =
+        try {
+            require(task.id.isNotBlank()) { "ID задачи не задан" }
 
-    override suspend fun deleteTask(id: String) {
-        taskCollection.document(id).delete().await()
-    }
+            val taskDocument = taskCollection.document(task.id)
+            // update не создаёт документ заново и не трогает поля вне модели.
+            taskDocument.update(task.toMap()).await()
 
-    private fun TaskModel.toMap(): Map<String, Any> = buildMap {
-        put("title", title)
-        put("description", description)
-        put("status", status.code.toLong())
-        put("deadline", Timestamp(
-            deadline.toEpochSecond(ZoneOffset.UTC),
-            deadline.nano
-        ))
-        if (projectId.isNotBlank()) put("projectId", projectCollection.document(projectId))
-        if (authorId.isNotBlank()) put("authorId", userCollection.document(authorId))
-        if (assigneeId.isNotBlank()) put("assigneeId", userCollection.document(assigneeId))
-    }
+            val updated =
+                fromDocument(taskDocument.get().await())
+                    ?: throw Exception("Задача не найдена")
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка обновления задачи"))
+        }
+
+    override suspend fun deleteTask(id: String): Result<Unit> =
+        try {
+            taskCollection.document(id).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка удаления задачи"))
+        }
+
+    private fun TaskModel.toMap(): Map<String, Any> =
+        buildMap {
+            put("title", title)
+            put("description", description)
+            put("status", status.code.toLong())
+            put(
+                "deadline",
+                Timestamp(
+                    deadline.toEpochSecond(ZoneOffset.UTC),
+                    deadline.nano,
+                ),
+            )
+            if (projectId.isNotBlank()) put("projectId", projectCollection.document(projectId))
+            if (authorId.isNotBlank()) put("authorId", userCollection.document(authorId))
+            if (assigneeId.isNotBlank()) put("assigneeId", userCollection.document(assigneeId))
+        }
 
     companion object {
         fun fromDocument(doc: DocumentSnapshot): TaskModel? {
             if (!doc.exists()) return null
 
-            val deadlineLocal = doc.getTimestamp("deadline")?.let {
-                LocalDateTime.ofInstant(
-                    Instant.ofEpochSecond(it.seconds, it.nanoseconds.toLong()),
-                    ZoneOffset.UTC
-                )
-            } ?: LocalDateTime.now(ZoneOffset.UTC)
-
-            val statusInt = (doc.getLong("status") ?: 0L).toInt()
+            val deadline =
+                doc.getTimestamp("deadline")?.let {
+                    LocalDateTime.ofInstant(
+                        Instant.ofEpochSecond(it.seconds, it.nanoseconds.toLong()),
+                        ZoneOffset.UTC,
+                    )
+                } ?: LocalDateTime.now(ZoneOffset.UTC)
 
             return TaskModel(
                 id = doc.id,
@@ -92,8 +129,8 @@ class FirebaseTaskRepositoryImpl(
                 assigneeId = doc.getDocumentReference("assigneeId")?.id.orEmpty(),
                 title = doc.getString("title").orEmpty(),
                 description = doc.getString("description").orEmpty(),
-                deadline = deadlineLocal,
-                status = TaskStatus.fromInt(statusInt)
+                deadline = deadline,
+                status = TaskStatus.fromInt((doc.getLong("status") ?: 0L).toInt()),
             )
         }
     }

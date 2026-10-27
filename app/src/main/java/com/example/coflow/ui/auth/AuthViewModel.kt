@@ -2,9 +2,9 @@ package com.example.coflow.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.coflow.data.repositories.AuthRepository
-import com.example.coflow.data.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.models.UserModel
+import com.example.coflow.repositories.AuthRepository
+import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
