@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -142,6 +143,10 @@ fun AuthScreen(
 fun AuthRoute(onAuthSuccess: () -> Unit,
               viewModel: AuthViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state.isAuthorized) {
+        if (state.isAuthorized) onAuthSuccess()
+    }
     AuthScreen(
         state = state,
         onUsernameChange = viewModel::onUsernameChange,
