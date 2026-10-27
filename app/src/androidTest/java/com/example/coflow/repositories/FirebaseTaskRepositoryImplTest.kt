@@ -1,8 +1,8 @@
 package com.example.coflow.repositories
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.dto.TaskAddDto
 import com.example.coflow.repositories.dto.TaskUpdateDto
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -36,7 +36,7 @@ class FirebaseTaskRepositoryImplTest {
             val projectId = "test_project_$uniqueSuffix"
             val deadline = LocalDateTime.of(2026, 1, 1, 12, 0)
             val task =
-                TaskModel(
+                TaskAddDto(
                     title = title,
                     description = "Описание задачи для интеграционного теста",
                     projectId = projectId,

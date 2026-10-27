@@ -1,6 +1,7 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.TaskModel
+import com.example.coflow.repositories.dto.TaskAddDto
 import com.example.coflow.repositories.dto.TaskUpdateDto
 
 /**
@@ -14,8 +15,12 @@ import com.example.coflow.repositories.dto.TaskUpdateDto
  * В `updateTask` поля [TaskUpdateDto], равные `null`, не меняются.
  *
  * ```kotlin
+ * val task = repository.addTask(
+ *     TaskAddDto(title = "Новая задача", projectId = projectId),
+ * ).getOrThrow()
+ *
  * repository.updateTask(
- *     id = taskId,
+ *     id = task.id,
  *     update = TaskUpdateDto(status = TaskStatus.DONE),
  * )
  * ```
@@ -31,10 +36,11 @@ interface TaskRepository {
     suspend fun getByProjectId(id: String): Result<List<TaskModel>>
 
     /**
-     * Создаёт задачу. `id` входной модели игнорируется — новый ID генерирует Firestore.
-     * Возвращает уже сохранённую модель.
+     * Создаёт задачу из [TaskAddDto].
+     * ID генерирует репозиторий, поэтому в DTO его нет.
+     * Возвращает сохранённую модель с заполненным `id`.
      */
-    suspend fun addTask(task: TaskModel): Result<TaskModel>
+    suspend fun addTask(task: TaskAddDto): Result<TaskModel>
 
     /**
      * Частично обновляет задачу [id].

@@ -1,6 +1,7 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.ProjectModel
+import com.example.coflow.repositories.dto.ProjectAddDto
 import com.example.coflow.repositories.dto.ProjectUpdateDto
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.CollectionReference
@@ -17,6 +18,7 @@ import java.time.ZoneOffset
  * Коллекция `projects`; `ownerId` — строка, `updatedAt` — Timestamp,
  * `isDeleted` — Boolean. getByUserId() дополнительно читает `memberships`.
  * updateProject() меняет только переданные поля DTO и обновляет updatedAt.
+ * addProject() принимает ProjectAddDto и сам генерирует ID.
  */
 class FirebaseProjectRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -80,12 +82,20 @@ class FirebaseProjectRepositoryImpl(
             Result.failure(Exception(e.message ?: "Ошибка загрузки проектов пользователя"))
         }
 
-    override suspend fun addProject(project: ProjectModel): Result<ProjectModel> =
+    override suspend fun addProject(project: ProjectAddDto): Result<ProjectModel> =
         try {
             require(project.ownerId.isNotBlank()) { "ownerId обязателен" }
 
             val projectDocument = projectCollection.document()
-            val saved = project.copy(id = projectDocument.id)
+            val saved =
+                ProjectModel(
+                    id = projectDocument.id,
+                    ownerId = project.ownerId,
+                    title = project.title,
+                    description = project.description,
+                    updatedAt = LocalDateTime.now(ZoneOffset.UTC),
+                    isDeleted = false,
+                )
 
             projectDocument.set(saved.toFirestoreMap()).await()
 

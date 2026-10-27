@@ -2,6 +2,7 @@ package com.example.coflow.repositories
 
 import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.dto.TaskAddDto
 import com.example.coflow.repositories.dto.TaskUpdateDto
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.CollectionReference
@@ -18,7 +19,8 @@ import java.time.ZoneOffset
  *
  * Коллекция `tasks`; `projectId`, `authorId` и `assigneeId` хранятся как
  * DocumentReference, `deadline` — Timestamp, `status` — Int.
- * addTask() генерирует ID документа, updateTask() принимает id и TaskUpdateDto.
+ * addTask() принимает TaskAddDto и генерирует ID документа,
+ * updateTask() принимает id и TaskUpdateDto.
  */
 class FirebaseTaskRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -64,10 +66,10 @@ class FirebaseTaskRepositoryImpl(
             Result.failure(Exception(e.message ?: "Ошибка загрузки задач проекта"))
         }
 
-    override suspend fun addTask(task: TaskModel): Result<TaskModel> =
+    override suspend fun addTask(task: TaskAddDto): Result<TaskModel> =
         try {
             val taskDocument = taskCollection.document()
-            val toWrite = task.copy(id = taskDocument.id)
+            val toWrite = task.toModel(taskDocument.id)
             taskDocument.set(toWrite.toCreateMap()).await()
 
             val created =
@@ -107,6 +109,19 @@ class FirebaseTaskRepositoryImpl(
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "Ошибка удаления задачи"))
         }
+
+    /** Собирает модель задачи из DTO и сгенерированного ID. */
+    private fun TaskAddDto.toModel(id: String): TaskModel =
+        TaskModel(
+            id = id,
+            title = title,
+            description = description,
+            projectId = projectId,
+            authorId = authorId,
+            assigneeId = assigneeId,
+            deadline = deadline,
+            status = status,
+        )
 
     /** Поля, которые нужны при создании задачи. */
     private fun TaskModel.toCreateMap(): Map<String, Any> =

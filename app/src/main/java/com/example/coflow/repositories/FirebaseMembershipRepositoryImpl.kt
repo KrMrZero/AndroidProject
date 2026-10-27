@@ -2,6 +2,7 @@ package com.example.coflow.repositories
 
 import com.example.coflow.models.MembershipModel
 import com.example.coflow.models.Role
+import com.example.coflow.repositories.dto.MembershipAddDto
 import com.example.coflow.repositories.dto.MembershipUpdateDto
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentSnapshot
@@ -11,8 +12,9 @@ import kotlinx.coroutines.tasks.await
 /**
  * Firestore-реализация членства.
  *
- * Коллекция `memberships`; ID документа — `projectId_userId`,
- * поля `projectId`, `userId`, `role` (Int). addMember() создаёт запись,
+ * Коллекция `memberships`; ID документа генерирует Firestore,
+ * поля `projectId`, `userId`, `role` (Int). addMember() принимает MembershipAddDto,
+ * запрещает дубли projectId + userId и возвращает модель с ID документа.
  * updateMember() меняет только переданные поля DTO.
  */
 class FirebaseMembershipRepositoryImpl(
@@ -46,21 +48,33 @@ class FirebaseMembershipRepositoryImpl(
             Result.failure(Exception(e.message ?: "Ошибка загрузки участников проекта"))
         }
 
-    override suspend fun addMember(member: MembershipModel): Result<MembershipModel> =
+    override suspend fun addMember(member: MembershipAddDto): Result<MembershipModel> =
         try {
             require(member.projectId.isNotBlank() && member.userId.isNotBlank()) {
                 "projectId и userId обязательны"
             }
 
             // Один пользователь может быть в проекте только один раз.
-            val id = "${member.projectId}_${member.userId}"
-            val membershipDocument = membershipCollection.document(id)
+            val alreadyExists =
+                membershipCollection
+                    .whereEqualTo("projectId", member.projectId)
+                    .get()
+                    .await()
+                    .documents
+                    .any { it.getString("userId") == member.userId }
 
-            if (membershipDocument.get().await().exists()) {
+            if (alreadyExists) {
                 throw Exception("Участник уже существует")
             }
 
-            val saved = member.copy(id = id)
+            val membershipDocument = membershipCollection.document()
+            val saved =
+                MembershipModel(
+                    id = membershipDocument.id,
+                    projectId = member.projectId,
+                    userId = member.userId,
+                    role = member.role,
+                )
             membershipDocument.set(saved.toFirestoreMap()).await()
             Result.success(saved)
         } catch (e: Exception) {

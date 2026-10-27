@@ -1,6 +1,7 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.MembershipModel
+import com.example.coflow.repositories.dto.MembershipAddDto
 import com.example.coflow.repositories.dto.MembershipUpdateDto
 
 /**
@@ -11,18 +12,22 @@ import com.example.coflow.repositories.dto.MembershipUpdateDto
  * - [updateMember] — изменение роли по ID;
  * - [deleteMember] — удаление.
  *
- * ID документа вычисляется как `projectId_userId`. Поэтому проект и
- * пользователь у существующего членства не меняются — только роль.
+ * ID документа генерирует репозиторий. Проект и пользователь у существующего
+ * членства не меняются — только роль.
  *
  * ```kotlin
  * val saved = repository.addMember(
- *     MembershipModel(projectId = projectId, userId = userId, role = Role.MEMBER),
+ *     MembershipAddDto(
+ *         projectId = projectId,
+ *         userId = userId,
+ *         role = Role.MEMBER,
+ *     ),
  * ).getOrThrow()
  *
  * repository.updateMember(
  *     id = saved.id,
  *     update = MembershipUpdateDto(role = Role.OWNER),
- * ).getOrThrow()
+ * )
  * ```
  */
 interface MembershipRepository {
@@ -33,10 +38,12 @@ interface MembershipRepository {
     suspend fun getByProjectId(projectId: String): Result<List<MembershipModel>>
 
     /**
-     * Создаёт членство. ID вычисляется из `projectId` + `userId`.
-     * Если такой участник уже есть, вернёт [Result.failure].
+     * Создаёт членство из [MembershipAddDto].
+     * [MembershipAddDto.projectId] и [MembershipAddDto.userId] обязательны.
+     * ID генерирует репозиторий и возвращает его в [MembershipModel.id].
+     * Повторная пара projectId + userId не допускается.
      */
-    suspend fun addMember(member: MembershipModel): Result<MembershipModel>
+    suspend fun addMember(member: MembershipAddDto): Result<MembershipModel>
 
     /**
      * Частично обновляет членство по ID.

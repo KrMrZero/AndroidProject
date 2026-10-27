@@ -1,6 +1,7 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.UserModel
+import com.example.coflow.repositories.dto.UserAddDto
 import com.example.coflow.repositories.dto.UserUpdateDto
 
 /**
@@ -15,13 +16,13 @@ import com.example.coflow.repositories.dto.UserUpdateDto
  *
  * ```kotlin
  * val user = repository.addUser(
- *     UserModel(name = "Иван", email = "ivan@example.com"),
+ *     UserAddDto(name = "Иван", email = "ivan@example.com"),
  * ).getOrThrow()
  *
  * repository.updateUser(
  *     id = user.uid,
  *     update = UserUpdateDto(name = "Иван Петров"),
- * ).getOrThrow()
+ * )
  * ```
  *
  * [deleteUser] физически удаляет документ. Поле `isDeleted` читается и
@@ -35,10 +36,11 @@ interface UserRepository {
     suspend fun getByEmail(email: String): Result<UserModel>
 
     /**
-     * Создаёт пользователя. Если `uid` пустой, ID генерирует Firestore.
-     * Если документ с таким UID уже существует, вернёт [Result.failure].
+     * Создаёт пользователя из [UserAddDto].
+     * UID генерирует репозиторий, поэтому в DTO его нет.
+     * Возвращает сохранённую модель с заполненным `uid`.
      */
-    suspend fun addUser(user: UserModel): Result<UserModel>
+    suspend fun addUser(user: UserAddDto): Result<UserModel>
 
     /**
      * Частично обновляет пользователя [id].

@@ -1,7 +1,7 @@
 package com.example.coflow.repositories
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.coflow.models.UserModel
+import com.example.coflow.repositories.dto.UserAddDto
 import com.example.coflow.repositories.dto.UserUpdateDto
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 /**
  * Интеграционные тесты репозитория пользователей на Firestore Emulator.
  *
- * Проверяют создание, чтение по ID/email и удаление.
+ * Проверяют создание, чтение по ID/email, обновление и удаление.
  */
 @RunWith(AndroidJUnit4::class)
 class FirebaseUserRepositoryImplTest {
@@ -31,7 +31,7 @@ class FirebaseUserRepositoryImplTest {
         runBlocking {
             val email = "user_repo_${System.currentTimeMillis()}@example.com"
             val user =
-                UserModel(
+                UserAddDto(
                     name = "Тестовый Пользователь",
                     email = email,
                 )
@@ -42,10 +42,6 @@ class FirebaseUserRepositoryImplTest {
                 assertEquals(user.name, added.name)
                 assertEquals(email, added.email)
                 assertFalse("Новый пользователь не должен быть удалён", added.isDeleted)
-                assertTrue(
-                    "Повторное создание с тем же UID должно вернуть ошибку",
-                    repository.addUser(user.copy(uid = added.uid)).isFailure,
-                )
 
                 val fetchedById = repository.getById(added.uid).getOrThrow()
                 assertEquals(user.name, fetchedById.name)

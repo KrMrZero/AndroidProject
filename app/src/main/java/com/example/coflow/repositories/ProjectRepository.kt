@@ -1,6 +1,7 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.ProjectModel
+import com.example.coflow.repositories.dto.ProjectAddDto
 import com.example.coflow.repositories.dto.ProjectUpdateDto
 
 /**
@@ -13,6 +14,17 @@ import com.example.coflow.repositories.dto.ProjectUpdateDto
  *
  * В `updateProject` поля [ProjectUpdateDto], равные `null`, не меняются.
  * `updatedAt` репозиторий обновляет автоматически.
+ *
+ * ```kotlin
+ * val project = repository.addProject(
+ *     ProjectAddDto(ownerId = uid, title = "Новый проект"),
+ * ).getOrThrow()
+ *
+ * repository.updateProject(
+ *     id = project.id,
+ *     update = ProjectUpdateDto(title = "Обновлённый проект"),
+ * )
+ * ```
  */
 interface ProjectRepository {
     /**
@@ -31,10 +43,11 @@ interface ProjectRepository {
     suspend fun getByUserId(userId: String): Result<List<ProjectModel>>
 
     /**
-     * Создаёт проект. `ownerId` обязателен, остальные поля берутся из модели.
-     * Возвращает сохранённый проект с новым ID.
+     * Создаёт проект из [ProjectAddDto].
+     * ID генерирует репозиторий, `updatedAt` и `isDeleted` выставляются автоматически.
+     * Возвращает сохранённую модель с заполненным `id`.
      */
-    suspend fun addProject(project: ProjectModel): Result<ProjectModel>
+    suspend fun addProject(project: ProjectAddDto): Result<ProjectModel>
 
     /**
      * Частично обновляет проект [id].

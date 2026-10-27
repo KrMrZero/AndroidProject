@@ -1,18 +1,20 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.UserModel
+import com.example.coflow.repositories.dto.UserAddDto
 import com.example.coflow.repositories.dto.UserUpdateDto
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import java.util.Date
 
 /**
  * Firestore-реализация пользователей.
  *
  * Коллекция `users`; `name` и `email` — строки, `createdAt` — Timestamp,
- * `is_deleted` — Boolean. addUser() создаёт документ, updateUser() меняет
- * только переданные поля DTO.
+ * `is_deleted` — Boolean. addUser() принимает UserAddDto и сам генерирует UID,
+ * updateUser() меняет только переданные поля DTO.
  */
 class FirebaseUserRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -52,20 +54,18 @@ class FirebaseUserRepositoryImpl(
             Result.failure(Exception(e.message ?: "Ошибка поиска пользователя"))
         }
 
-    override suspend fun addUser(user: UserModel): Result<UserModel> =
+    override suspend fun addUser(user: UserAddDto): Result<UserModel> =
         try {
-            val userDocument =
-                if (user.uid.isNotBlank()) {
-                    userCollection.document(user.uid)
-                } else {
-                    userCollection.document()
-                }
+            val userDocument = userCollection.document()
+            val saved =
+                UserModel(
+                    uid = userDocument.id,
+                    name = user.name,
+                    email = user.email,
+                    createdAt = Date(),
+                    isDeleted = false,
+                )
 
-            if (userDocument.get().await().exists()) {
-                throw Exception("Пользователь уже существует")
-            }
-
-            val saved = user.copy(uid = userDocument.id)
             userDocument.set(saved.toFirestoreMap()).await()
             Result.success(saved)
         } catch (e: Exception) {

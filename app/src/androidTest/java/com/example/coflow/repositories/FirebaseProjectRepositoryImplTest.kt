@@ -2,8 +2,9 @@ package com.example.coflow.repositories
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.coflow.models.MembershipModel
-import com.example.coflow.models.ProjectModel
 import com.example.coflow.models.Role
+import com.example.coflow.repositories.dto.MembershipAddDto
+import com.example.coflow.repositories.dto.ProjectAddDto
 import com.example.coflow.repositories.dto.ProjectUpdateDto
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -11,12 +12,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.LocalDateTime
 
 /**
  * Интеграционные тесты проектов на Firestore Emulator.
  *
- * Проверяют создание, чтение по ID/владельцу/участнику и мягкое удаление.
+ * Проверяют создание, чтение по ID/владельцу/участнику, обновление
+ * и мягкое удаление.
  */
 @RunWith(AndroidJUnit4::class)
 class FirebaseProjectRepositoryImplTest {
@@ -36,13 +37,11 @@ class FirebaseProjectRepositoryImplTest {
             val suffix = System.currentTimeMillis()
             val ownerId = "test_owner_$suffix"
             val userId = "test_user_$suffix"
-            val updatedAt = LocalDateTime.of(2026, 1, 1, 12, 0)
             val project =
-                ProjectModel(
+                ProjectAddDto(
                     ownerId = ownerId,
                     title = "Тестовый проект $suffix",
                     description = "Описание проекта для интеграционного теста",
-                    updatedAt = updatedAt,
                 )
 
             val saved = repository.addProject(project).getOrThrow()
@@ -51,7 +50,6 @@ class FirebaseProjectRepositoryImplTest {
                 assertTrue("ID проекта должен быть заполнен", saved.id.isNotBlank())
                 assertEquals(ownerId, saved.ownerId)
                 assertEquals(project.title, saved.title)
-                assertEquals(updatedAt, saved.updatedAt)
 
                 val fetchedById = repository.getById(saved.id).getOrThrow()
                 assertEquals(project.title, fetchedById.title)
@@ -86,7 +84,7 @@ class FirebaseProjectRepositoryImplTest {
                 membership =
                     membershipRepository
                         .addMember(
-                            MembershipModel(
+                            MembershipAddDto(
                                 projectId = saved.id,
                                 userId = userId,
                                 role = Role.MEMBER,

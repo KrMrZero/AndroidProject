@@ -1,8 +1,8 @@
 package com.example.coflow.repositories
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.coflow.models.MembershipModel
 import com.example.coflow.models.Role
+import com.example.coflow.repositories.dto.MembershipAddDto
 import com.example.coflow.repositories.dto.MembershipUpdateDto
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -33,7 +33,7 @@ class FirebaseMembershipRepositoryImplTest {
             val projectId = "test_project_$suffix"
             val userId = "test_user_$suffix"
             val member =
-                MembershipModel(
+                MembershipAddDto(
                     projectId = projectId,
                     userId = userId,
                     role = Role.MEMBER,
@@ -41,7 +41,7 @@ class FirebaseMembershipRepositoryImplTest {
 
             val saved = repository.addMember(member).getOrThrow()
             try {
-                assertEquals("${projectId}_$userId", saved.id)
+                assertTrue("ID членства должен быть заполнен", saved.id.isNotBlank())
                 assertEquals(Role.MEMBER, saved.role)
                 assertTrue(
                     "Повторное создание того же членства должно вернуть ошибку",
