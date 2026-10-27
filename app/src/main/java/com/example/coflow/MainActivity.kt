@@ -1,6 +1,7 @@
 package com.example.coflow
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -8,9 +9,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.coflow.data.TasksTestData
 import com.example.coflow.ui.auth.AuthRoute
 import com.example.coflow.ui.tasks.ChooseAssigneeScreen
 import com.example.coflow.ui.tasks.ChooseDateScreen
@@ -37,7 +41,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CoFlowTheme {
-                var isAuthenticated by remember { mutableStateOf(true) }
+                var isAuthenticated by remember { mutableStateOf(value = true) }
 
                 if (isAuthenticated) {
                     val navController = rememberNavController()
@@ -46,30 +50,30 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.TASKS) {
                             TasksScreen(
                                 onNavigateToCreateTask = { navController.navigate(Screen.CREATE_TASK) },
-                                onNavigateToTaskDetail = { taskId -> navController.navigate("task_detail/$taskId") }
+                                onNavigateToTaskDetail = { taskId -> navController.navigate("task_detail/$taskId") },
                             )
                         }
 
                         // Экран просмотра задачи
                         composable(
                             route = Screen.TASK_DETAIL,
-                            arguments = listOf(androidx.navigation.navArgument("taskId") { type = androidx.navigation.NavType.IntType })
+                            arguments = listOf(navArgument("taskId") { type = NavType.IntType }),
                         ) { backStackEntry ->
                             val taskId = backStackEntry.arguments?.getInt("taskId")
                             // Ищем задачу в тестовых данных по ID
-                            val task = com.example.coflow.data.TasksTestData.tasks.find { it.id == taskId }
+                            val task = TasksTestData.tasks.find { it.id == taskId }
 
                             if (task != null) {
                                 TaskDetailScreen(
                                     task = task,
                                     onBackClick = { navController.popBackStack() },
                                     onEditClick = {
-                                        android.widget.Toast.makeText(
+                                        Toast.makeText(
                                             this@MainActivity,
-                                            "Редактирование ляляля",
-                                            android.widget.Toast.LENGTH_SHORT
+                                            "Редактирование задачи",
+                                            Toast.LENGTH_SHORT
                                         ).show()
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -77,13 +81,13 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.CREATE_TASK) {
                             CreateTaskRoute(
                                 onBackClick = { navController.popBackStack() },
-                                onTaskCreated = { formData ->
+                                onTaskCreated = { _ ->
                                     // TODO: Сохранение задачи через TasksRepository
                                     navController.popBackStack()
                                 },
                                 onNavigateToAssignees = { navController.navigate(Screen.CHOOSE_ASSIGNEE) },
                                 onNavigateToProject = { navController.navigate(Screen.CHOOSE_PROJECT) },
-                                onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) }
+                                onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) },
                             )
                         }
 
@@ -95,7 +99,7 @@ class MainActivity : ComponentActivity() {
                                     // TODO: Здесь нужно получить выбранные данные и передать их обратно (например, через ViewModel)
                                     // Пока просто возвращаемся назад
                                     navController.popBackStack()
-                                }
+                                },
                             )
                         }
 
@@ -106,7 +110,7 @@ class MainActivity : ComponentActivity() {
                                 onConfirmSelection = {
                                     // TODO: Обработать выбор проекта
                                     navController.popBackStack()
-                                }
+                                },
                             )
                         }
 
@@ -117,7 +121,7 @@ class MainActivity : ComponentActivity() {
                                 onConfirmSelection = {
                                     // TODO: Обработать выбор даты
                                     navController.popBackStack()
-                                }
+                                },
                             )
                         }
                     }

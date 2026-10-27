@@ -4,13 +4,14 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 data class CreateTaskFormData(
     val title: String,
     val description: String,
     val assignees: String,
     val project: String,
-    val dueDate: String
+    val dueDate: String,
 )
 
 data class CreateTaskUiState(
@@ -29,24 +30,24 @@ class CreateTaskViewModel : ViewModel() {
     val state: StateFlow<CreateTaskUiState> = _state.asStateFlow()
 
     fun onTitleChange(value: String) {
-        _state.value = _state.value.copy(title = value)
+        _state.update { it.copy(title = value) }
     }
 
     fun onDescriptionChange(value: String) {
         // Описание ограничено 250 символами, как и в UI
-        _state.value = _state.value.copy(description = value.take(250))
+        _state.update { it.copy(description = value.take(250)) }
     }
 
     fun onAssigneesChange(value: String) {
-        _state.value = _state.value.copy(assignees = value)
+        _state.update { it.copy(assignees = value) }
     }
 
     fun onProjectChange(value: String) {
-        _state.value = _state.value.copy(project = value)
+        _state.update { it.copy(project = value) }
     }
 
     fun onDueDateChange(value: String) {
-        _state.value = _state.value.copy(dueDate = value)
+        _state.update { it.copy(dueDate = value) }
     }
 
     fun onCreateTask(onTaskCreated: (CreateTaskFormData) -> Unit) {
@@ -61,7 +62,7 @@ class CreateTaskViewModel : ViewModel() {
                 description = current.description.trim(),
                 assignees = current.assignees.trim(),
                 project = current.project.trim(),
-                dueDate = current.dueDate.trim()
+                dueDate = current.dueDate.trim(),
             )
         )
     }

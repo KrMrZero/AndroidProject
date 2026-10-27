@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.coflow.data.Task
+import com.example.coflow.data.TasksTestData
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
@@ -58,10 +60,11 @@ fun TasksScreen(onNavigateToCreateTask: () -> Unit, onNavigateToTaskDetail: (Int
     }
 
     val today = LocalDate.now()
+    val filterMineText = stringResource(R.string.filter_mine)
     val filteredTasks = TasksTestData.tasks.filter { task ->
         if (selectedFilters.isEmpty()) true
         else {
-            val isMineSelected = selectedFilters.contains(stringResource(R.string.filter_mine))
+            val isMineSelected = selectedFilters.contains(filterMineText)
             val projectFilters = selectedFilters.filter { it.startsWith("Проект") }
             (isMineSelected && task.isMine) || projectFilters.any { task.projectName == it }
         }

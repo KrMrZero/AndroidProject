@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.coflow.data.Task
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
@@ -111,32 +112,7 @@ fun TaskDetailScreen(
                             )
                         }
 
-                        // Исполнители
-                        Column {
-                            Text("Исполнители", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
-                            Spacer(Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CoFlowIcon(name = "person", modifier = Modifier.size(24.dp), color = CoFlowColors.TextSecondary)
-                                Spacer(Modifier.width(12.dp))
 
-                                val assigneeText = when {
-                                    task.assignees.isEmpty() -> "Нет исполнителей"
-                                    task.assignees.size == 1 -> task.assignees.first()
-                                    else -> "Вы и еще ${task.assignees.size - 1} участник(а)"
-                                }
-
-                                Text(
-                                    text = assigneeText,
-                                    fontSize = 13.sp,
-                                    color = CoFlowColors.TextPrimary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                CoFlowIcon(name = "chevron", modifier = Modifier.size(16.dp), color = CoFlowColors.Blue)
-                            }
-                        }
 
                         // Дата
                         Column {

@@ -1,10 +1,11 @@
 package com.example.coflow.ui.auth
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.coflow.data.repositories.AuthRepository
-import com.example.coflow.data.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.models.UserModel
+import com.example.coflow.repositories.AuthRepository
+import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +31,7 @@ data class AuthUiState(
     val errorMessage: String? = null,
 
     val currentUser: UserModel? = null,
-    val isAuthorized: Boolean = false
+    val isAuthorized: Boolean = false,
 )
 
 class AuthViewModel(
@@ -72,25 +73,28 @@ class AuthViewModel(
         val current = _state.value
 
         // Валидация имени (только для регистрации)
-        val usernameError = if (current.mode == AuthMode.REGISTER && current.username.isBlank()) {
-            "Введите имя пользователя"
-        } else if (current.mode == AuthMode.REGISTER && current.username.length < 2) {
-            "Имя слишком короткое"
-        } else null
+        val usernameError = when {
+            current.mode == AuthMode.REGISTER && current.username.isBlank() -> "Введите имя пользователя"
+            current.mode == AuthMode.REGISTER && current.username.length < 2 -> "Имя слишком короткое"
+            else -> null
+        }
 
         // Валидация Email
         val contactError = when {
             current.contact.isBlank() -> "Введите почту"
-            !android.util.Patterns.EMAIL_ADDRESS.matcher(current.contact).matches() -> "Неверный формат email"
+            !Patterns.EMAIL_ADDRESS.matcher(current.contact).matches() -> "Неверный формат email"
             else -> null
         }
 
         // Валидация пароля (минимум 8 символов, хотя бы одна буква и цифра)
-        val passwordError = when {
-            current.mode == AuthMode.REGISTER && current.password.length < 8 -> "Пароль должен быть не менее 8 символов"
-            current.mode == AuthMode.REGISTER && !current.password.any { it.isDigit() } -> "Пароль должен содержать хотя бы одну цифру"
-            current.mode == AuthMode.REGISTER && !current.password.any { it.isLetter() } -> "Пароль должен содержать хотя бы одну букву"
-            else -> null
+        val passwordError = when (current.mode) {
+            AuthMode.REGISTER -> when {
+                current.password.length < 8 -> "Пароль должен быть не менее 8 символов"
+                !current.password.any { it.isDigit() } -> "Пароль должен содержать хотя бы одну цифру"
+                !current.password.any { it.isLetter() } -> "Пароль должен содержать хотя бы одну букву"
+                else -> null
+            }
+            AuthMode.LOGIN -> null
         }
 
         // Валидация подтверждения пароля
@@ -99,7 +103,8 @@ class AuthViewModel(
         } else null
 
         if (usernameError != null || contactError != null || passwordError != null || confirmError != null) {
-            _state.update {it.copy(
+            _state.update {
+                it.copy(
                     usernameError = usernameError,
                     contactError = contactError,
                     passwordError = passwordError,
@@ -110,7 +115,8 @@ class AuthViewModel(
             return
         }
 
-        _state.update {it.copy(
+        _state.update {
+            it.copy(
                 isSubmitting = true,
                 usernameError = null,
                 contactError = null,
@@ -130,7 +136,8 @@ class AuthViewModel(
 
             result.fold(
                 onSuccess = { user ->
-                    _state.update {it.copy(
+                    _state.update {
+                        it.copy(
                             isSubmitting = false,
                             currentUser = user,
                             isAuthorized = true
@@ -138,7 +145,8 @@ class AuthViewModel(
                     }
                 },
                 onFailure = { error ->
-                    _state.update {it.copy(
+                    _state.update {
+                        it.copy(
                             isSubmitting = false,
                             errorMessage = error.message ?: "Неизвестная ошибка"
                         )
@@ -147,5 +155,4 @@ class AuthViewModel(
             )
         }
     }
-
 }
