@@ -11,6 +11,13 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
+/**
+ * Firestore-реализация задач.
+ *
+ * Коллекция `tasks`; `projectId`, `authorId` и `assigneeId` хранятся как
+ * DocumentReference, `deadline` — Timestamp, `status` — Int.
+ * addTask() генерирует ID документа, updateTask() требует заполненный id.
+ */
 class FirebaseTaskRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : TaskRepository {

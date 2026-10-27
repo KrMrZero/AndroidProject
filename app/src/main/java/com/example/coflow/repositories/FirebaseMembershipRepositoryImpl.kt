@@ -7,6 +7,13 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Firestore-реализация членства.
+ *
+ * Коллекция `memberships`; ID документа — `projectId_userId`,
+ * поля `projectId`, `userId`, `role` (Int). Повторный saveMember()
+ * обновляет роль существующего участника.
+ */
 class FirebaseMembershipRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : MembershipRepository {

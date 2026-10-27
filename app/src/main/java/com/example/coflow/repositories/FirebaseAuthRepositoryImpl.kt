@@ -10,6 +10,11 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Firebase Auth + профиль в `users/{uid}`.
+ * В профиле хранятся `uid`, `name`, `email` и `createdAt` (Timestamp).
+ * Если запись профиля не удалась, register() удаляет созданного Auth-пользователя.
+ */
 class FirebaseAuthRepositoryImpl : AuthRepository {
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()

@@ -6,6 +6,13 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Firestore-реализация пользователей.
+ *
+ * Коллекция `users`; `name` и `email` — строки, `createdAt` — Timestamp,
+ * `is_deleted` — Boolean. addUser() обновляет документ при заполненном uid
+ * или создаёт новый документ с сгенерированным UID.
+ */
 class FirebaseUserRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : UserRepository {

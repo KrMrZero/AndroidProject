@@ -10,6 +10,12 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
+/**
+ * Firestore-реализация проектов.
+ *
+ * Коллекция `projects`; `ownerId` — строка, `updatedAt` — Timestamp,
+ * `isDeleted` — Boolean. getByUserId() дополнительно читает `memberships`.
+ */
 class FirebaseProjectRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) : ProjectRepository {
