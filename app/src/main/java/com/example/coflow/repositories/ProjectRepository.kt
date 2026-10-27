@@ -1,23 +1,18 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.ProjectModel
+import com.example.coflow.repositories.dto.ProjectUpdateDto
 
 /**
  * Проекты (коллекция `projects`).
  *
- * Создание:
- * ```kotlin
- * val project = repository.addProject(
- *     ProjectModel(ownerId = uid, title = "Новый проект"),
- * ).getOrThrow()
- * ```
+ * Единый стандарт изменения данных:
+ * - [addProject] — создание нового документа;
+ * - [updateProject] — частичное обновление по `id`;
+ * - [deleteProject] — мягкое удаление.
  *
- * [addProject] всегда создаёт новый документ, поэтому `id` входной модели
- * игнорируется. [deleteProject] выполняет мягкое удаление: ставит
- * `isDeleted = true`, документ остаётся в базе и пропадает из списков.
- *
- * Отдельного метода обновления проекта сейчас нет — для изменения названия или
- * описания потребуется добавить `updateProject()` с `update` по `project.id`.
+ * В `updateProject` поля [ProjectUpdateDto], равные `null`, не меняются.
+ * `updatedAt` репозиторий обновляет автоматически.
  */
 interface ProjectRepository {
     /**
@@ -40,6 +35,17 @@ interface ProjectRepository {
      * Возвращает сохранённый проект с новым ID.
      */
     suspend fun addProject(project: ProjectModel): Result<ProjectModel>
+
+    /**
+     * Частично обновляет проект [id].
+     *
+     * Меняются только поля [ProjectUpdateDto], отличные от `null`.
+     * Если не передано ни одного поля, вернёт [Result.failure].
+     */
+    suspend fun updateProject(
+        id: String,
+        update: ProjectUpdateDto,
+    ): Result<ProjectModel>
 
     /**
      * Помечает проект удалённым.

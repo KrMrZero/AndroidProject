@@ -1,20 +1,23 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.TaskModel
+import com.example.coflow.repositories.dto.TaskUpdateDto
 
 /**
  * Репозиторий задач (коллекция `tasks`).
  *
- * Все методы suspend и возвращают `Result`.
- * - Создание: [addTask] — новый документ, ID генерируется.
- * - Изменение: [updateTask] — `id` обязателен, меняем через `copy`.
- * - Удаление: [deleteTask] — документ удаляется физически.
+ * Единый стандарт изменения данных:
+ * - [addTask] — создание нового документа;
+ * - [updateTask] — частичное обновление по `id`;
+ * - [deleteTask] — удаление.
+ *
+ * В `updateTask` поля [TaskUpdateDto], равные `null`, не меняются.
  *
  * ```kotlin
- * viewModelScope.launch {
- *     val task = repository.getById(taskId).getOrThrow()
- *     repository.updateTask(task.copy(status = TaskStatus.DONE)).getOrThrow()
- * }
+ * repository.updateTask(
+ *     id = taskId,
+ *     update = TaskUpdateDto(status = TaskStatus.DONE),
+ * )
  * ```
  */
 interface TaskRepository {
@@ -34,15 +37,15 @@ interface TaskRepository {
     suspend fun addTask(task: TaskModel): Result<TaskModel>
 
     /**
-     * Обновляет существующую задачу по [TaskModel.id].
+     * Частично обновляет задачу [id].
      *
-     * Передавайте изменённую копию:
-     * ```kotlin
-     * repository.updateTask(task.copy(title = "Новое название"))
-     * ```
-     * Если документа с таким ID нет, вернёт [Result.failure].
+     * Меняются только поля [TaskUpdateDto], отличные от `null`.
+     * Если не передано ни одного поля, вернёт [Result.failure].
      */
-    suspend fun updateTask(task: TaskModel): Result<TaskModel>
+    suspend fun updateTask(
+        id: String,
+        update: TaskUpdateDto,
+    ): Result<TaskModel>
 
     /** Удаляет задачу по ID. Возвращает [Result.failure], если удалить не удалось. */
     suspend fun deleteTask(id: String): Result<Unit>

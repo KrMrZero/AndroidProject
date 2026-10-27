@@ -2,6 +2,7 @@ package com.example.coflow.repositories
 
 import com.example.coflow.models.MembershipModel
 import com.example.coflow.models.Role
+import com.example.coflow.repositories.dto.MembershipUpdateDto
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -11,8 +12,8 @@ import kotlinx.coroutines.tasks.await
  * Firestore-реализация членства.
  *
  * Коллекция `memberships`; ID документа — `projectId_userId`,
- * поля `projectId`, `userId`, `role` (Int). Повторный saveMember()
- * обновляет роль существующего участника.
+ * поля `projectId`, `userId`, `role` (Int). addMember() создаёт запись,
+ * updateMember() меняет только переданные поля DTO.
  */
 class FirebaseMembershipRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -45,7 +46,7 @@ class FirebaseMembershipRepositoryImpl(
             Result.failure(Exception(e.message ?: "Ошибка загрузки участников проекта"))
         }
 
-    override suspend fun saveMember(member: MembershipModel): Result<MembershipModel> =
+    override suspend fun addMember(member: MembershipModel): Result<MembershipModel> =
         try {
             require(member.projectId.isNotBlank() && member.userId.isNotBlank()) {
                 "projectId и userId обязательны"
@@ -53,12 +54,38 @@ class FirebaseMembershipRepositoryImpl(
 
             // Один пользователь может быть в проекте только один раз.
             val id = "${member.projectId}_${member.userId}"
-            val saved = member.copy(id = id)
+            val membershipDocument = membershipCollection.document(id)
 
-            membershipCollection.document(id).set(saved.toFirestoreMap()).await()
+            if (membershipDocument.get().await().exists()) {
+                throw Exception("Участник уже существует")
+            }
+
+            val saved = member.copy(id = id)
+            membershipDocument.set(saved.toFirestoreMap()).await()
             Result.success(saved)
         } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Ошибка сохранения участника"))
+            Result.failure(Exception(e.message ?: "Ошибка создания участника"))
+        }
+
+    override suspend fun updateMember(
+        id: String,
+        update: MembershipUpdateDto,
+    ): Result<MembershipModel> =
+        try {
+            require(id.isNotBlank()) { "ID членства не задан" }
+
+            val updates = update.toUpdateMap()
+            require(updates.isNotEmpty()) { "Нет полей для обновления" }
+
+            val membershipDocument = membershipCollection.document(id)
+            membershipDocument.update(updates).await()
+
+            val updated =
+                membershipDocument.get().await().toMembershipModel()
+                    ?: throw Exception("Членство не найдено")
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка обновления участника"))
         }
 
     override suspend fun deleteMember(id: String): Result<Unit> =
@@ -76,6 +103,11 @@ private fun MembershipModel.toFirestoreMap(): Map<String, Any> =
         "userId" to userId,
         "role" to role.code,
     )
+
+private fun MembershipUpdateDto.toUpdateMap(): Map<String, Any> =
+    buildMap {
+        role?.let { put("role", it.code) }
+    }
 
 private fun DocumentSnapshot.toMembershipModel(): MembershipModel? {
     if (!exists()) return null

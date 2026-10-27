@@ -2,9 +2,11 @@ package com.example.coflow.repositories
 
 import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.dto.TaskUpdateDto
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import java.time.Instant
@@ -16,7 +18,7 @@ import java.time.ZoneOffset
  *
  * Коллекция `tasks`; `projectId`, `authorId` и `assigneeId` хранятся как
  * DocumentReference, `deadline` — Timestamp, `status` — Int.
- * addTask() генерирует ID документа, updateTask() требует заполненный id.
+ * addTask() генерирует ID документа, updateTask() принимает id и TaskUpdateDto.
  */
 class FirebaseTaskRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -66,7 +68,7 @@ class FirebaseTaskRepositoryImpl(
         try {
             val taskDocument = taskCollection.document()
             val toWrite = task.copy(id = taskDocument.id)
-            taskDocument.set(toWrite.toMap()).await()
+            taskDocument.set(toWrite.toCreateMap()).await()
 
             val created =
                 fromDocument(taskDocument.get().await())
@@ -76,13 +78,19 @@ class FirebaseTaskRepositoryImpl(
             Result.failure(Exception(e.message ?: "Ошибка создания задачи"))
         }
 
-    override suspend fun updateTask(task: TaskModel): Result<TaskModel> =
+    override suspend fun updateTask(
+        id: String,
+        update: TaskUpdateDto,
+    ): Result<TaskModel> =
         try {
-            require(task.id.isNotBlank()) { "ID задачи не задан" }
+            require(id.isNotBlank()) { "ID задачи не задан" }
 
-            val taskDocument = taskCollection.document(task.id)
-            // update не создаёт документ заново и не трогает поля вне модели.
-            taskDocument.update(task.toMap()).await()
+            val updates = update.toUpdateMap()
+            require(updates.isNotEmpty()) { "Нет полей для обновления" }
+
+            val taskDocument = taskCollection.document(id)
+            // update не создаёт документ заново и не трогает поля вне DTO.
+            taskDocument.update(updates).await()
 
             val updated =
                 fromDocument(taskDocument.get().await())
@@ -100,21 +108,35 @@ class FirebaseTaskRepositoryImpl(
             Result.failure(Exception(e.message ?: "Ошибка удаления задачи"))
         }
 
-    private fun TaskModel.toMap(): Map<String, Any> =
+    /** Поля, которые нужны при создании задачи. */
+    private fun TaskModel.toCreateMap(): Map<String, Any> =
         buildMap {
             put("title", title)
             put("description", description)
             put("status", status.code.toLong())
-            put(
-                "deadline",
-                Timestamp(
-                    deadline.toEpochSecond(ZoneOffset.UTC),
-                    deadline.nano,
-                ),
-            )
+            put("deadline", deadline.toTimestamp())
             if (projectId.isNotBlank()) put("projectId", projectCollection.document(projectId))
             if (authorId.isNotBlank()) put("authorId", userCollection.document(authorId))
             if (assigneeId.isNotBlank()) put("assigneeId", userCollection.document(assigneeId))
+        }
+
+    /** null в DTO означает «не менять», пустая строка ID — удалить ссылку. */
+    private fun TaskUpdateDto.toUpdateMap(): Map<String, Any> =
+        buildMap {
+            title?.let { put("title", it) }
+            description?.let { put("description", it) }
+            status?.let { put("status", it.code.toLong()) }
+            deadline?.let { put("deadline", it.toTimestamp()) }
+            projectId?.let { put("projectId", it.toReference(projectCollection)) }
+            authorId?.let { put("authorId", it.toReference(userCollection)) }
+            assigneeId?.let { put("assigneeId", it.toReference(userCollection)) }
+        }
+
+    private fun String.toReference(collection: CollectionReference): Any =
+        if (isBlank()) {
+            FieldValue.delete()
+        } else {
+            collection.document(this)
         }
 
     companion object {
@@ -141,4 +163,9 @@ class FirebaseTaskRepositoryImpl(
             )
         }
     }
+}
+
+private fun LocalDateTime.toTimestamp(): Timestamp {
+    val instant = toInstant(ZoneOffset.UTC)
+    return Timestamp(instant.epochSecond, instant.nano)
 }

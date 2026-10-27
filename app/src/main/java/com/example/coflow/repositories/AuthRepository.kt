@@ -17,7 +17,7 @@ import com.example.coflow.models.UserModel
  * `register()` создаёт пользователя в Auth и документ `users/{uid}`.
  * `login()` и `signInWithGoogle()` возвращают профиль из `users`.
  * Для изменения имени или других данных профиля используйте
- * [UserRepository.addUser] с существующим `uid`.
+ * [UserRepository.updateUser] с существующим `uid`.
  */
 interface AuthRepository {
     /**

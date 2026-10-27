@@ -3,6 +3,7 @@ package com.example.coflow.repositories
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.coflow.models.MembershipModel
 import com.example.coflow.models.Role
+import com.example.coflow.repositories.dto.MembershipUpdateDto
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -26,7 +27,7 @@ class FirebaseMembershipRepositoryImplTest {
     }
 
     @Test
-    fun saveReadUpdateAndDeleteWorkflow() {
+    fun addReadUpdateAndDeleteWorkflow() {
         runBlocking {
             val suffix = System.currentTimeMillis()
             val projectId = "test_project_$suffix"
@@ -38,10 +39,14 @@ class FirebaseMembershipRepositoryImplTest {
                     role = Role.MEMBER,
                 )
 
-            val saved = repository.saveMember(member).getOrThrow()
+            val saved = repository.addMember(member).getOrThrow()
             try {
                 assertEquals("${projectId}_$userId", saved.id)
                 assertEquals(Role.MEMBER, saved.role)
+                assertTrue(
+                    "Повторное создание того же членства должно вернуть ошибку",
+                    repository.addMember(member).isFailure,
+                )
 
                 val byUser = repository.getByUserId(userId).getOrThrow()
                 assertTrue(
@@ -55,7 +60,12 @@ class FirebaseMembershipRepositoryImplTest {
                     byProject.any { it.id == saved.id },
                 )
 
-                val updated = repository.saveMember(saved.copy(role = Role.OWNER)).getOrThrow()
+                val updated =
+                    repository
+                        .updateMember(
+                            id = saved.id,
+                            update = MembershipUpdateDto(role = Role.OWNER),
+                        ).getOrThrow()
                 assertEquals(Role.OWNER, updated.role)
 
                 val reloaded =
@@ -64,6 +74,11 @@ class FirebaseMembershipRepositoryImplTest {
                         .getOrThrow()
                         .first { it.id == saved.id }
                 assertEquals(Role.OWNER, reloaded.role)
+
+                assertTrue(
+                    "Пустой DTO должен вернуть ошибку",
+                    repository.updateMember(saved.id, MembershipUpdateDto()).isFailure,
+                )
             } finally {
                 repository.deleteMember(saved.id).getOrThrow()
             }

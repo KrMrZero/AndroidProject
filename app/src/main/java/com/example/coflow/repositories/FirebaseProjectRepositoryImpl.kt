@@ -1,6 +1,7 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.ProjectModel
+import com.example.coflow.repositories.dto.ProjectUpdateDto
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentSnapshot
@@ -15,6 +16,7 @@ import java.time.ZoneOffset
  *
  * Коллекция `projects`; `ownerId` — строка, `updatedAt` — Timestamp,
  * `isDeleted` — Boolean. getByUserId() дополнительно читает `memberships`.
+ * updateProject() меняет только переданные поля DTO и обновляет updatedAt.
  */
 class FirebaseProjectRepositoryImpl(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -95,6 +97,27 @@ class FirebaseProjectRepositoryImpl(
             Result.failure(Exception(e.message ?: "Ошибка создания проекта"))
         }
 
+    override suspend fun updateProject(
+        id: String,
+        update: ProjectUpdateDto,
+    ): Result<ProjectModel> =
+        try {
+            require(id.isNotBlank()) { "ID проекта не задан" }
+
+            val updates = update.toUpdateMap()
+            require(updates.isNotEmpty()) { "Нет полей для обновления" }
+
+            val projectDocument = projectCollection.document(id)
+            projectDocument.update(updates).await()
+
+            val updated =
+                projectDocument.get().await().toProjectModel()
+                    ?: throw Exception("Проект не найден")
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка обновления проекта"))
+        }
+
     override suspend fun deleteProject(id: String): Result<Unit> =
         try {
             require(id.isNotBlank()) { "ID проекта не задан" }
@@ -122,6 +145,15 @@ private fun ProjectModel.toFirestoreMap(): Map<String, Any> =
         "updatedAt" to updatedAt.toTimestamp(),
         "isDeleted" to isDeleted,
     )
+
+private fun ProjectUpdateDto.toUpdateMap(): Map<String, Any> =
+    buildMap {
+        title?.let { put("title", it) }
+        description?.let { put("description", it) }
+        if (isNotEmpty()) {
+            put("updatedAt", LocalDateTime.now(ZoneOffset.UTC).toTimestamp())
+        }
+    }
 
 private fun LocalDateTime.toTimestamp(): Timestamp {
     val instant = toInstant(ZoneOffset.UTC)

@@ -3,6 +3,7 @@ package com.example.coflow.repositories
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.dto.TaskUpdateDto
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -76,18 +77,21 @@ class FirebaseTaskRepositoryImplTest {
                 val updated =
                     repository
                         .updateTask(
-                            created.copy(
-                                title = newTitle,
-                                description = "Обновлённое описание",
-                                deadline = newDeadline,
-                                status = TaskStatus.DONE,
-                            ),
+                            id = created.id,
+                            update =
+                                TaskUpdateDto(
+                                    title = newTitle,
+                                    description = "Обновлённое описание",
+                                    deadline = newDeadline,
+                                    status = TaskStatus.DONE,
+                                ),
                         ).getOrThrow()
 
                 assertEquals(created.id, updated.id)
                 assertEquals(newTitle, updated.title)
                 assertEquals(newDeadline, updated.deadline)
                 assertEquals(TaskStatus.DONE, updated.status)
+                assertEquals("test_assignee", updated.assigneeId)
 
                 val reloaded = repository.getById(created.id).getOrThrow()
                 assertEquals(newTitle, reloaded.title)
@@ -95,7 +99,11 @@ class FirebaseTaskRepositoryImplTest {
 
                 assertTrue(
                     "Обновление без ID должно вернуть ошибку",
-                    repository.updateTask(task.copy(id = "")).isFailure,
+                    repository.updateTask("", TaskUpdateDto(title = "Без ID")).isFailure,
+                )
+                assertTrue(
+                    "Пустой DTO должен вернуть ошибку",
+                    repository.updateTask(created.id, TaskUpdateDto()).isFailure,
                 )
             } finally {
                 repository.deleteTask(created.id).getOrThrow()

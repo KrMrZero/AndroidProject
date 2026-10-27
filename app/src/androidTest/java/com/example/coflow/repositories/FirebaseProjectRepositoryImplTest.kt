@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.coflow.models.MembershipModel
 import com.example.coflow.models.ProjectModel
 import com.example.coflow.models.Role
+import com.example.coflow.repositories.dto.ProjectUpdateDto
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -55,6 +56,27 @@ class FirebaseProjectRepositoryImplTest {
                 val fetchedById = repository.getById(saved.id).getOrThrow()
                 assertEquals(project.title, fetchedById.title)
 
+                val updated =
+                    repository
+                        .updateProject(
+                            id = saved.id,
+                            update =
+                                ProjectUpdateDto(
+                                    title = "Обновлённый проект",
+                                    description = "Обновлённое описание",
+                                ),
+                        ).getOrThrow()
+                assertEquals("Обновлённый проект", updated.title)
+                assertEquals("Обновлённое описание", updated.description)
+
+                val reloadedProject = repository.getById(saved.id).getOrThrow()
+                assertEquals("Обновлённый проект", reloadedProject.title)
+
+                assertTrue(
+                    "Пустой DTO должен вернуть ошибку",
+                    repository.updateProject(saved.id, ProjectUpdateDto()).isFailure,
+                )
+
                 val byOwner = repository.getByOwnerId(ownerId).getOrThrow()
                 assertTrue(
                     "Проект должен находиться по владельцу",
@@ -63,7 +85,7 @@ class FirebaseProjectRepositoryImplTest {
 
                 membership =
                     membershipRepository
-                        .saveMember(
+                        .addMember(
                             MembershipModel(
                                 projectId = saved.id,
                                 userId = userId,
