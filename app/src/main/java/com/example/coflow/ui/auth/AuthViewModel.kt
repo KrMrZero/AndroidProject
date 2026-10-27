@@ -1,14 +1,14 @@
 package com.example.coflow.ui.auth
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.coflow.data.repositories.AuthRepository
-import com.example.coflow.data.repositories.FirebaseAuthRepositoryImpl
+import com.example.coflow.repositories.AuthRepository
+import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.models.UserModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class AuthMode {
@@ -40,30 +40,28 @@ class AuthViewModel(
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
 
     fun onUsernameChange(value: String) {
-        _state.update { it.copy(username = value, usernameError = null) }
+        _state.value = _state.value.copy(username = value, usernameError = null)
     }
 
     fun onContactChange(value: String) {
-        _state.update { it.copy(contact = value, contactError = null) }
+        _state.value = _state.value.copy(contact = value, contactError = null)
     }
 
     fun onPasswordChange(value: String) {
-        _state.update { it.copy(password = value, passwordError = null) }
+        _state.value = _state.value.copy(password = value, passwordError = null)
     }
 
     fun onConfirmChange(value: String) {
-        _state.update { it.copy(confirmPassword = value, confirmError = null) }
+        _state.value = _state.value.copy(confirmPassword = value, confirmError = null)
     }
 
     fun onToggleMode() {
-        _state.update {
-            it.copy(
-                mode = if (it.mode == AuthMode.LOGIN) AuthMode.REGISTER else AuthMode.LOGIN,
-                username = "", contact = "", password = "", confirmPassword = "",
-                usernameError = null, contactError = null,
-                passwordError = null, confirmError = null, errorMessage = null
-            )
-        }
+        _state.value = _state.value.copy(
+            mode = if (_state.value.mode == AuthMode.LOGIN) AuthMode.REGISTER else AuthMode.LOGIN,
+            username = "", contact = "", password = "", confirmPassword = "",
+            usernameError = null, contactError = null,
+            passwordError = null, confirmError = null, errorMessage = null
+        )
     }
 
     fun onSubmit() {
@@ -81,7 +79,7 @@ class AuthViewModel(
         // Валидация Email
         val contactError = when {
             current.contact.isBlank() -> "Введите почту"
-            !android.util.Patterns.EMAIL_ADDRESS.matcher(current.contact).matches() -> "Неверный формат email"
+            !Patterns.EMAIL_ADDRESS.matcher(current.contact).matches() -> "Неверный формат email"
             else -> null
         }
 
@@ -99,26 +97,24 @@ class AuthViewModel(
         } else null
 
         if (usernameError != null || contactError != null || passwordError != null || confirmError != null) {
-            _state.update {it.copy(
-                    usernameError = usernameError,
-                    contactError = contactError,
-                    passwordError = passwordError,
-                    confirmError = confirmError,
-                    isSubmitting = false
-                )
-            }
+            _state.value = _state.value.copy(
+                usernameError = usernameError,
+                contactError = contactError,
+                passwordError = passwordError,
+                confirmError = confirmError,
+                isSubmitting = false
+            )
             return
         }
 
-        _state.update {it.copy(
-                isSubmitting = true,
-                usernameError = null,
-                contactError = null,
-                passwordError = null,
-                confirmError = null,
-                errorMessage = null
-            )
-        }
+        _state.value = _state.value.copy(
+            isSubmitting = true,
+            usernameError = null,
+            contactError = null,
+            passwordError = null,
+            confirmError = null,
+            errorMessage = null
+        )
 
         // Вызов бэкенда
         viewModelScope.launch {
@@ -130,22 +126,19 @@ class AuthViewModel(
 
             result.fold(
                 onSuccess = { user ->
-                    _state.update {it.copy(
-                            isSubmitting = false,
-                            currentUser = user,
-                            isAuthorized = true
-                        )
-                    }
+                    _state.value = _state.value.copy(
+                        isSubmitting = false,
+                        currentUser = user,
+                        isAuthorized = true
+                    )
                 },
                 onFailure = { error ->
-                    _state.update {it.copy(
-                            isSubmitting = false,
-                            errorMessage = error.message ?: "Неизвестная ошибка"
-                        )
-                    }
+                    _state.value = _state.value.copy(
+                        isSubmitting = false,
+                        errorMessage = error.message ?: "Неизвестная ошибка"
+                    )
                 }
             )
         }
     }
-
 }
