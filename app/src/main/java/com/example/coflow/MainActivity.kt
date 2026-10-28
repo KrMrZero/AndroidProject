@@ -1,7 +1,7 @@
 package com.example.coflow
 
+import android.annotation.SuppressLint
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -9,7 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -23,14 +23,11 @@ import com.example.coflow.ui.tasks.ChooseDateRoute
 import com.example.coflow.ui.tasks.ChooseProjectRoute
 import com.example.coflow.ui.tasks.CreateTaskRoute
 import com.example.coflow.ui.tasks.CreateTaskViewModel
+import com.example.coflow.ui.tasks.TaskDetailRoute
 import com.example.coflow.ui.tasks.TaskDetailScreen
 import com.example.coflow.ui.tasks.TaskDetailUiState
-import com.example.coflow.ui.tasks.TaskGroupUi
-import com.example.coflow.ui.tasks.TaskGrouping
-import com.example.coflow.ui.tasks.TaskRowUi
 import com.example.coflow.ui.tasks.TaskStatusUi
-import com.example.coflow.ui.tasks.TasksScreen
-import com.example.coflow.ui.tasks.TasksUiState
+import com.example.coflow.ui.tasks.TasksRoute
 import com.example.coflow.ui.theme.CoFlowTheme
 
 object Screen {
@@ -56,14 +53,16 @@ class MainActivity : ComponentActivity() {
                 if (isAuthenticated) {
                     val navController = rememberNavController()
                     val createTaskViewModel: CreateTaskViewModel = viewModel()
+                    val defaultFilterText = stringResource(R.string.filter_none)
 
                     NavHost(navController = navController, startDestination = Screen.TASKS) {
                         // Экран Мои задачи
                         composable(Screen.TASKS) {
-                            TasksScreen(
+                            TasksRoute(
                                 onNavigateToCreateTask = { navController.navigate(Screen.CREATE_TASK) },
                                 onNavigateToTaskDetail = { taskId -> navController.navigate("task_detail/$taskId") },
-                                onNavigateToProjects = { navController.navigate(Screen.PROJECTS) }
+                                onNavigateToProjects = { navController.navigate(Screen.PROJECTS) },
+                                onNavigateToProfile = {  }
                             )
                         }
 
@@ -84,79 +83,13 @@ class MainActivity : ComponentActivity() {
                         // Экран просмотра задачи
                         composable(
                             route = Screen.TASK_DETAIL,
-                        ) { backStackEntry ->
-                            val taskId =
-                                backStackEntry.arguments?.getString("taskId")?.toIntOrNull() ?: 1
-
-                            val mockTaskDetailState =
-                                when (taskId) {
-                                    1 -> {
-                                        TaskDetailUiState(
-                                            title = "Обновить иконки в навигации",
-                                            status = TaskStatusUi.TODO,
-                                            projectName = "Дизайн-система",
-                                            description = "",
-                                            author = "Елена Козлова",
-                                            assignees = emptyList(),
-                                            dueDateFormatted = "30.10.26",
-                                            isOverdue = false,
-                                            canEdit = true,
-                                            showBottomAction = true,
-                                            bottomActionText = "Взять задачу",
-                                        )
-                                    }
-
-                                    3 -> {
-                                        TaskDetailUiState(
-                                            title = "Разработать новый онбординг для пользователей",
-                                            status = TaskStatusUi.IN_PROGRESS,
-                                            projectName = "Мобильное приложение",
-                                            description = "Нужно сделать 3 экрана с анимацией и кнопкой пропуска.",
-                                            author = "Алексей Смирнов",
-                                            assignees = listOf("Мария Иванова", "Ты"),
-                                            dueDateFormatted = "24.10.26",
-                                            isOverdue = true,
-                                            canEdit = false,
-                                            showBottomAction = true,
-                                            bottomActionText = "Выполнить",
-                                        )
-                                    }
-
-                                    else -> {
-                                        TaskDetailUiState(
-                                            title = "Провести ревью кода модуля авторизации",
-                                            status = TaskStatusUi.DONE,
-                                            projectName = "Бэкенд",
-                                            description = "Все замечания исправлены, код утвержден.",
-                                            author = "Дмитрий Петров",
-                                            assignees = listOf("Ты"),
-                                            dueDateFormatted = "20.10.26",
-                                            isOverdue = false,
-                                            canEdit = false,
-                                            showBottomAction = false,
-                                            bottomActionText = "",
-                                        )
-                                    }
+                            arguments = listOf(navArgument("taskId") { type = NavType.StringType })
+                        ) {
+                            TaskDetailRoute(
+                                onNavigateBack = { navController.popBackStack() },
+                                onNavigateToEdit = { taskId ->
+                                    // TODO: Раскомментировать, когда будет экран редактирования
                                 }
-
-                            TaskDetailScreen(
-                                state = mockTaskDetailState,
-                                onBackClick = { navController.popBackStack() },
-                                onEditClick = { /* TODO: Navigate to edit screen */ },
-                                onBottomActionClick = { /* TODO: Handle bottom action */ },
-                            )
-                        }
-
-                        composable(Screen.CREATE_TASK) {
-                            CreateTaskRoute(
-                                onBackClick = { navController.popBackStack() },
-                                onTaskCreated = { formData ->
-                                    // TODO: Сохранение задачи через TasksRepository
-                                    navController.popBackStack()
-                                },
-                                onNavigateToAssignees = { navController.navigate(Screen.CHOOSE_ASSIGNEE) },
-                                onNavigateToProject = { navController.navigate(Screen.CHOOSE_PROJECT) },
-                                onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) },
                             )
                         }
 
@@ -210,6 +143,8 @@ class MainActivity : ComponentActivity() {
                                 viewModel = createTaskViewModel
                             )
                         }
+
+
                     }
                 } else {
                     AuthRoute(onAuthSuccess = { isAuthenticated = true })

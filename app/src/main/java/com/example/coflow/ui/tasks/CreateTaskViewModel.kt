@@ -2,13 +2,13 @@ package com.example.coflow.ui.tasks
 
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 
 // Модель данных исполнителя задачи.
 data class Assignee(
@@ -16,7 +16,7 @@ data class Assignee(
     val name: String,
     val email: String,
     val initials: String,
-    val avatarColor: Color
+    val avatarColor: Color,
 )
 
 // Модель задачи
@@ -25,51 +25,52 @@ data class CreateTaskFormData(
     val description: String,
     val assignees: List<Assignee>,
     val project: String,
-    val dueDate: String
+    val dueDate: String,
 )
 
 data class CreateTaskUiState(
     // --- Основные поля формы ---
     val title: String = "",
     val description: String = "",
-
     // --- Исполнители ---
     val assignees: List<Assignee> = emptyList(), // Уже подтверждённые исполнители
-    val allAssignees: List<Assignee> = emptyList(),// Полный список доступных исполнителей
+    val allAssignees: List<Assignee> = emptyList(), // Полный список доступных исполнителей
     val assigneeSearchQuery: String = "", // Текущий текст в поле поиска
-    val pendingAssigneeIds: Set<String> = emptySet(),  // Временно выбранные ID на экране выбора
-
+    val pendingAssigneeIds: Set<String> = emptySet(), // Временно выбранные ID на экране выбора
     // --- Дата и время ---
     val selectedDueDate: LocalDate = LocalDate.now(),
     val calendarMonth: YearMonth = YearMonth.now(),
     val dueDate: String = "",
-
     // --- Проект ---
     val project: String = "",
     val allProjects: List<String> = emptyList(),
     val projectSearchQuery: String = "",
     val pendingProject: String = "",
-
     // --- Статус и валидация ---
     val titleError: String? = null,
     val descriptionError: String? = null,
-    val isSubmitting: Boolean = false
+    val isSubmitting: Boolean = false,
 ) {
-
     /** Отфильтрованный список исполнителей на основе поискового запроса */
     val filteredAssignees: List<Assignee>
-        get() = if (assigneeSearchQuery.isBlank()) {
-            allAssignees
-        } else {
-            allAssignees.filter {
-                it.name.contains(assigneeSearchQuery, ignoreCase = true) ||
+        get() =
+            if (assigneeSearchQuery.isBlank()) {
+                allAssignees
+            } else {
+                allAssignees.filter {
+                    it.name.contains(assigneeSearchQuery, ignoreCase = true) ||
                         it.email.contains(assigneeSearchQuery, ignoreCase = true)
+                }
             }
-        }
+
     /** Отфильтрованный список проектов на основе поискового запроса. */
     val filteredProjects: List<String>
-        get() = if (projectSearchQuery.isBlank()) allProjects
-        else allProjects.filter { it.contains(projectSearchQuery, ignoreCase = true) }
+        get() =
+            if (projectSearchQuery.isBlank()) {
+                allProjects
+            } else {
+                allProjects.filter { it.contains(projectSearchQuery, ignoreCase = true) }
+            }
 
     /** Количество временно выбранных исполнителей (для отображения в UI). */
     val pendingSelectedCount: Int
@@ -95,7 +96,6 @@ data class CreateTaskUiState(
  * Координирует данные между основным экраном и экранами выбора (исполнитель, проект, дата).
  */
 class CreateTaskViewModel : ViewModel() {
-
     private val _state = MutableStateFlow(CreateTaskUiState())
     val state: StateFlow<CreateTaskUiState> = _state.asStateFlow()
 
@@ -106,13 +106,14 @@ class CreateTaskViewModel : ViewModel() {
 
     private fun loadAssignees() {
         // TODO: заменить на вызов репозитория
-        val demo = listOf(
-            Assignee("1", "Анна Смирнова", "anna.s@example.com", "АС", Color(0xFF6B9AF3)),
-            Assignee("2", "Михаил Орлов", "m.orlov@example.com", "МО", Color(0xFFA3B8CC)),
-            Assignee("3", "Елена Волкова", "elena.v@example.com", "ЕВ", Color(0xFF86D3B5)),
-            Assignee("4", "Дмитрий Соколов", "d.sokolov@example.com", "ДС", Color(0xFF8BB8F8)),
-            Assignee("5", "Мария Козлова", "maria.k@example.com", "МК", Color(0xFFAFA3F8))
-        )
+        val demo =
+            listOf(
+                Assignee("1", "Анна Смирнова", "anna.s@example.com", "АС", Color(0xFF6B9AF3)),
+                Assignee("2", "Михаил Орлов", "m.orlov@example.com", "МО", Color(0xFFA3B8CC)),
+                Assignee("3", "Елена Волкова", "elena.v@example.com", "ЕВ", Color(0xFF86D3B5)),
+                Assignee("4", "Дмитрий Соколов", "d.sokolov@example.com", "ДС", Color(0xFF8BB8F8)),
+                Assignee("5", "Мария Козлова", "maria.k@example.com", "МК", Color(0xFFAFA3F8)),
+            )
 
         _state.update { it.copy(allAssignees = demo) }
     }
@@ -127,6 +128,7 @@ class CreateTaskViewModel : ViewModel() {
     fun onTitleChange(value: String) {
         _state.update { it.copy(title = value, titleError = null) }
     }
+
     fun onDescriptionChange(value: String) {
         // Описание ограничено 250 символами, как и в UI
         _state.update { it.copy(description = value.take(250), descriptionError = null) }
@@ -136,13 +138,15 @@ class CreateTaskViewModel : ViewModel() {
     fun onAssigneeSearchQueryChange(query: String) {
         _state.update { it.copy(assigneeSearchQuery = query) }
     }
+
     fun togglePendingAssignee(assigneeId: String) {
         _state.update { current ->
-            val pending = if (assigneeId in current.pendingAssigneeIds) {
-                current.pendingAssigneeIds - assigneeId
-            } else {
-                current.pendingAssigneeIds + assigneeId
-            }
+            val pending =
+                if (assigneeId in current.pendingAssigneeIds) {
+                    current.pendingAssigneeIds - assigneeId
+                } else {
+                    current.pendingAssigneeIds + assigneeId
+                }
             current.copy(pendingAssigneeIds = pending)
         }
     }
@@ -155,7 +159,7 @@ class CreateTaskViewModel : ViewModel() {
         _state.update {
             it.copy(
                 pendingAssigneeIds = emptySet(),
-                assigneeSearchQuery = ""
+                assigneeSearchQuery = "",
             )
         }
     }
@@ -184,9 +188,11 @@ class CreateTaskViewModel : ViewModel() {
     fun onCalendarMonthChange(month: YearMonth) {
         _state.update { it.copy(calendarMonth = month) }
     }
+
     fun onDateSelected(date: LocalDate) {
         _state.update { it.copy(selectedDueDate = date) }
     }
+
     fun confirmDateSelection(dateString: String) {
         val date = LocalDate.parse(dateString, DateTimeFormatter.ofPattern("dd.MM.yyyy"))
         _state.update { it.copy(selectedDueDate = date, dueDate = dateString) }
@@ -205,8 +211,8 @@ class CreateTaskViewModel : ViewModel() {
                 description = current.description.trim(),
                 assignees = current.assignees,
                 project = current.project.trim(),
-                dueDate = current.dueDate.trim()
-            )
+                dueDate = current.dueDate.trim(),
+            ),
         )
     }
 }

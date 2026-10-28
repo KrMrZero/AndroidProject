@@ -14,10 +14,10 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.coflow.R
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
@@ -31,7 +31,7 @@ fun CreateTaskScreen(
     onNavigateToAssignees: () -> Unit,
     onNavigateToProject: () -> Unit,
     onNavigateToDate: () -> Unit,
-    onCreateTask: () -> Unit
+    onCreateTask: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
 
@@ -39,19 +39,26 @@ fun CreateTaskScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
         Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
-
             // Заголовок экрана создания задачи
             CoFlowScreenHeader(
                 title = stringResource(R.string.create_task_header),
-                onBackClick = { focusManager.clearFocus(); onBackClick() }
+                onBackClick = {
+                    focusManager.clearFocus()
+                    onBackClick()
+                },
             )
 
             // Скроллящаяся форма
-            Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 // Название задачи
                 CoFlowGlassTextField(
-                    label = stringResource(R.string.creation_task_name_label), value = state.title, onValueChange = onTitleChange,
-                    placeholder = stringResource(R.string.creation_task_name_placeholder)
+                    label = stringResource(R.string.creation_task_name_label),
+                    value = state.title,
+                    onValueChange = onTitleChange,
+                    placeholder = stringResource(R.string.creation_task_name_placeholder),
                 )
 
                 // Описание
@@ -61,7 +68,7 @@ fun CreateTaskScreen(
                     label = stringResource(R.string.creation_task_description_label),
                     placeholder = stringResource(R.string.creation_task_description_placeholder),
                     singleLine = false,
-                    maxLength = 250
+                    maxLength = 250,
                 )
 
                 // Исполнители
@@ -72,7 +79,7 @@ fun CreateTaskScreen(
                     placeholder = stringResource(R.string.creation_task_assignee_placeholder),
                     leadingIcon = "person",
                     trailingIcon = "chevron",
-                    onClick = { onNavigateToAssignees() }
+                    onClick = { onNavigateToAssignees() },
                 )
 
                 // Проект
@@ -83,7 +90,7 @@ fun CreateTaskScreen(
                     placeholder = stringResource(R.string.creation_task_project_placeholder),
                     leadingIcon = "folder",
                     trailingIcon = "chevron",
-                    onClick = { onNavigateToProject() }
+                    onClick = { onNavigateToProject() },
                 )
 
                 // Дата окончания
@@ -95,11 +102,12 @@ fun CreateTaskScreen(
                     leadingIcon = "calendar",
                     trailingIcon = "chevron",
                     onClick = { onNavigateToDate() },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Done,
+                        ),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                 )
             }
 
@@ -110,7 +118,7 @@ fun CreateTaskScreen(
                     focusManager.clearFocus()
                     onCreateTask()
                 },
-                enabled = state.canCreate
+                enabled = state.canCreate,
             )
         }
     }
@@ -123,7 +131,7 @@ fun CreateTaskRoute(
     onNavigateToAssignees: () -> Unit,
     onNavigateToProject: () -> Unit,
     onNavigateToDate: () -> Unit,
-    viewModel: CreateTaskViewModel = viewModel()
+    viewModel: CreateTaskViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -135,7 +143,7 @@ fun CreateTaskRoute(
         onNavigateToAssignees = onNavigateToAssignees,
         onNavigateToProject = onNavigateToProject,
         onNavigateToDate = onNavigateToDate,
-        onCreateTask = { viewModel.onCreateTask(onTaskCreated) }
+        onCreateTask = { viewModel.onCreateTask(onTaskCreated) },
     )
 }
 
@@ -143,7 +151,7 @@ fun CreateTaskRoute(
     name = "Создание задачи",
     showBackground = true,
     widthDp = 390,
-    heightDp = 844
+    heightDp = 844,
 )
 @Composable
 private fun CreateTaskScreenPreview() {
@@ -156,7 +164,7 @@ private fun CreateTaskScreenPreview() {
             onNavigateToAssignees = {},
             onNavigateToProject = {},
             onNavigateToDate = {},
-            onCreateTask = {}
+            onCreateTask = {},
         )
     }
 }
