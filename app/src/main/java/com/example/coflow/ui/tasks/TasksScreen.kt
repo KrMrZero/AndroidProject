@@ -84,24 +84,12 @@ fun TasksScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
             Column(modifier = Modifier.fillMaxSize().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
+            // ИСПРАВЛЕНО: Единый, чистый заголовок без стрелки назад, но с подзаголовком и колокольчиком
             CoFlowScreenHeader(
                 title = stringResource(R.string.my_tasks_header),
                 subtitle = "${state.activeCount} ${stringResource(R.string.my_tasks_active)} · ${state.completedCount} ${stringResource(R.string.my_tasks_completed)}",
                 trailingContent = {
-                    Box {
-                        CoFlowGlassIconButton(
-                            iconName = "bell",
-                            onClick = onNotificationClick
-                        )
-                        // Индикатор новых уведомлений
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 3.dp, end = 3.dp)
-                                .size(6.dp)
-                                .background(CoFlowColors.Blue, CircleShape)
-                        )
-                    }
+                    NotificationBell()
                 }
             )
 
@@ -138,7 +126,7 @@ fun TasksScreen(
                         )
                         Spacer(Modifier.width(16.dp))
 
-                        CoFlowFabButton(onClick = onNavigateToCreateTask)
+                        CoFlowFabButton(onClick = onNavigateToCreateTask, iconName = "task_plus")
                     }
                     Spacer(Modifier.height(7.dp))
 

@@ -15,6 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -24,6 +27,9 @@ import com.example.coflow.models.TaskStatus
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
 import java.time.format.DateTimeFormatter
+import com.example.coflow.R
+import androidx.compose.ui.res.pluralStringResource
+import androidx.annotation.StringRes
 
 
 enum class TaskStatusUi {
@@ -59,7 +65,7 @@ fun TaskDetailScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding().padding(horizontal = CoFlowSpacing.ScreenHorizontal)) {
             CoFlowScreenHeader(
-                title = "Задача",
+                title = stringResource(R.string.task_description_header),
                 onBackClick = onBackClick,
                 trailingContent = {
                     // Карандаш (показываем только если статус "в процессе")
@@ -105,7 +111,7 @@ fun TaskDetailScreen(
 
                         // Теги
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TagChip(text = getStatusText(state.status))
+                            TagChip(text = stringResource(getStatusTextRes(state.status)))
                             TagChip(text = state.projectName)
                         }
 
@@ -114,7 +120,7 @@ fun TaskDetailScreen(
                             Text("Описание", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = state.description.ifBlank { "Описание отсутствует" },
+                                text = state.description.ifBlank { stringResource(com.example.coflow.R.string.description_placeholder) },
                                 fontSize = 13.sp,
                                 color = CoFlowColors.TextSecondary
                             )
@@ -125,7 +131,7 @@ fun TaskDetailScreen(
                             Text("Автор задачи", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = state.author.ifBlank { "Неизвестно" },
+                                text = task.author.ifBlank { stringResource(R.string.author_placeholder) },
                                 fontSize = 13.sp,
                                 color = CoFlowColors.TextSecondary
                             )
@@ -133,7 +139,7 @@ fun TaskDetailScreen(
 
                         // Исполнители
                         Column {
-                            Text("Исполнители", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
+                            Text(stringResource(R.string.assignees_header), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CoFlowColors.TextPrimary)
                             Spacer(Modifier.height(8.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -143,9 +149,17 @@ fun TaskDetailScreen(
                                 Spacer(Modifier.width(12.dp))
 
                                 val assigneeText = when {
-                                    state.assignees.isEmpty() -> "Нет исполнителей"
-                                    state.assignees.size == 1 -> state.assignees.first()
-                                    else -> "Вы и еще ${state.assignees.size - 1} участник(а)"
+                                    state.assignees.isEmpty() -> stringResource(com.example.coflow.R.string.assignees_placeholder)
+                                    state.assignees.size == 1 -> task.assignees.first()
+                                    else ->
+                                    {
+                                        val assignees_count = task.assignees.size - 1
+                                        pluralStringResource(
+                                            id = com.example.coflow.R.plurals.task_selected_assignees_count,
+                                            count = assignees_count,
+                                            assignees_count
+                                        )
+                                    }
                                 }
 
                                 Text(
@@ -161,7 +175,7 @@ fun TaskDetailScreen(
                         // Дата
                         Column {
                             Text(
-                                "Дата окончания",
+                                stringResource(R.string.deadline_header),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = CoFlowColors.TextPrimary

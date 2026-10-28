@@ -1,7 +1,7 @@
 package com.example.coflow
 
-import android.annotation.SuppressLint
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -9,14 +9,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.coflow.ui.auth.AuthRoute
-import com.example.coflow.ui.tasks.ChooseAssigneeScreen
-import com.example.coflow.ui.tasks.ChooseDateScreen
-import com.example.coflow.ui.tasks.ChooseProjectScreen
+import com.example.coflow.ui.projects.ProjectsRoute
+import com.example.coflow.ui.tasks.ChooseAssigneeRoute
+import com.example.coflow.ui.tasks.ChooseDateRoute
+import com.example.coflow.ui.tasks.ChooseProjectRoute
 import com.example.coflow.ui.tasks.CreateTaskRoute
+import com.example.coflow.ui.tasks.CreateTaskViewModel
 import com.example.coflow.ui.tasks.TaskDetailScreen
 import com.example.coflow.ui.tasks.TaskDetailUiState
 import com.example.coflow.ui.tasks.TaskGroupUi
@@ -33,8 +39,8 @@ object Screen {
     const val CHOOSE_ASSIGNEE = "choose_assignee"
     const val CHOOSE_PROJECT = "choose_project"
     const val CHOOSE_DATE = "choose_date"
-
     const val TASK_DETAIL = "task_detail/{taskId}"
+    const val PROJECTS = "projects"
 }
 
 class MainActivity : ComponentActivity() {
@@ -49,100 +55,29 @@ class MainActivity : ComponentActivity() {
 
                 if (isAuthenticated) {
                     val navController = rememberNavController()
+                    val createTaskViewModel: CreateTaskViewModel = viewModel()
 
-                    NavHost(
-                        navController = navController,
-                        startDestination = Screen.TASKS,
-                    )
-                    {
+                    NavHost(navController = navController, startDestination = Screen.TASKS) {
+                        // Экран Мои задачи
                         composable(Screen.TASKS) {
-                            val mockTasksState =
-                                TasksUiState(
-                                    activeCount = 5,
-                                    completedCount = 12,
-                                    groups =
-                                        listOf(
-                                            TaskGroupUi(
-                                                id = "TODO",
-                                                title = "К исполнению",
-                                                count = 2,
-                                                isExpanded = true,
-                                                tasks =
-                                                    listOf(
-                                                        TaskRowUi(
-                                                            1,
-                                                            "Обновить иконки навигации",
-                                                            "Дизайн-система",
-                                                            "30.10.26",
-                                                            isDone = false,
-                                                            isOverdue = false,
-                                                        ),
-                                                        TaskRowUi(
-                                                            2,
-                                                            "Согласовать ТЗ с заказчиком",
-                                                            "Сайт",
-                                                            "01.11.26",
-                                                            isDone = false,
-                                                            isOverdue = false,
-                                                        ),
-                                                    ),
-                                            ),
-                                            TaskGroupUi(
-                                                id = "IN_PROGRESS",
-                                                title = "В процессе",
-                                                count = 2,
-                                                isExpanded = false,
-                                                tasks =
-                                                    listOf(
-                                                        TaskRowUi(
-                                                            3,
-                                                            "Разработать онбординг",
-                                                            "Мобильное приложение",
-                                                            "24.10.26",
-                                                            isDone = false,
-                                                            isOverdue = true,
-                                                        ),
-                                                        TaskRowUi(
-                                                            4,
-                                                            "Настроить CI/CD",
-                                                            "Бэкенд",
-                                                            "28.10.26",
-                                                            isDone = false,
-                                                            isOverdue = false,
-                                                        ),
-                                                    ),
-                                            ),
-                                            TaskGroupUi(
-                                                id = "DONE",
-                                                title = "Сделано",
-                                                count = 12,
-                                                isExpanded = false,
-                                                tasks = emptyList(),
-                                            ),
-                                        ),
-                                    currentGrouping = TaskGrouping.STATUS,
-                                    filterButtonText = "Без фильтра",
-                                    availableFilters =
-                                        listOf(
-                                            "Без фильтра",
-                                            "Мои задачи",
-                                            "Проект: Дизайн-система",
-                                            "Проект: Мобильное приложение",
-                                        ),
-                                    isBottomBarVisible = true,
-                                    selectedFilters = setOf("Мои задачи"),
-                                )
-
                             TasksScreen(
-                                state = mockTasksState,
                                 onNavigateToCreateTask = { navController.navigate(Screen.CREATE_TASK) },
-                                onNavigateToTaskDetail = { taskId -> navController.navigate("${Screen.TASK_DETAIL}/$taskId") },
-                                onGroupingChange = { /* TODO: Handle grouping change */ },
-                                onFilterToggle = { /* TODO: Handle filter toggle */ },
-                                onToggleGroup = { /* TODO: Handle group toggle */ },
-                                onNotificationClick = { /* TODO: Handle notification click */ },
-                                onProjectsClick = { /* TODO: Handle projects click */ },
-                                onProfileClick = { /* TODO: Handle profile click */ },
+                                onNavigateToTaskDetail = { taskId -> navController.navigate("task_detail/$taskId") },
+                                onNavigateToProjects = { navController.navigate(Screen.PROJECTS) }
+                            )
+                        }
+
+                        // Экран Проекты
+                        composable(Screen.PROJECTS) {
+                            ProjectsRoute(
+                                onNavigateToCreateProject = {
+                                    android.widget.Toast.makeText(
+                                        this@MainActivity,
+                                        "Добавление проекта ляля",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                },
+                                onNavigateToTasks = { navController.popBackStack() }
                             )
                         }
 
@@ -225,6 +160,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // Экран создания задачи
                         composable(Screen.CREATE_TASK) {
                             CreateTaskRoute(
                                 onBackClick = { navController.popBackStack() },
@@ -235,40 +171,43 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToAssignees = { navController.navigate(Screen.CHOOSE_ASSIGNEE) },
                                 onNavigateToProject = { navController.navigate(Screen.CHOOSE_PROJECT) },
                                 onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) },
+                                viewModel = createTaskViewModel
                             )
                         }
 
                         // Экран выбора исполнителей
                         composable(Screen.CHOOSE_ASSIGNEE) {
-                            ChooseAssigneeScreen(
+                            ChooseAssigneeRoute(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Здесь нужно получить выбранные данные и передать их обратно (например, через ViewModel)
-                                    // Пока просто возвращаемся назад
+                                onConfirmSelection = { assignees ->
+                                    createTaskViewModel.confirmAssigneeSelection(assignees)
                                     navController.popBackStack()
                                 },
+                                viewModel = createTaskViewModel
                             )
                         }
 
                         // Экран выбора проекта
                         composable(Screen.CHOOSE_PROJECT) {
-                            ChooseProjectScreen(
+                            ChooseProjectRoute(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Обработать выбор проекта
+                                onConfirmSelection = { project ->
+                                    createTaskViewModel.confirmProjectSelection(project)
                                     navController.popBackStack()
                                 },
+                                viewModel = createTaskViewModel
                             )
                         }
 
                         // Экран выбора даты
                         composable(Screen.CHOOSE_DATE) {
-                            ChooseDateScreen(
+                            ChooseDateRoute(
                                 onBackClick = { navController.popBackStack() },
-                                onConfirmSelection = {
-                                    // TODO: Обработать выбор даты
+                                onConfirmSelection = { date ->
+                                    createTaskViewModel.confirmDateSelection(date)
                                     navController.popBackStack()
                                 },
+                                viewModel = createTaskViewModel
                             )
                         }
                     }
