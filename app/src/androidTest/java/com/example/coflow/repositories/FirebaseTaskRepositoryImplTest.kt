@@ -1,9 +1,10 @@
-package com.example.coflow.data.firebase
+package com.example.coflow.repositories
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.dto.TaskAddDto
+import com.example.coflow.repositories.dto.TaskUpdateDto
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.tasks.await
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -14,66 +15,103 @@ import java.time.LocalDateTime
 /**
  * Интеграционные тесты репозитория задач на Firestore Emulator.
  *
- * Документ создаётся напрямую через Firestore, чтобы проверить чтение и
- * удаление через репозиторий. Данные уникальны для каждого прогона.
+ * Проверяют полный сценарий: создание, чтение по ID/заголовку/проекту,
+ * обновление и удаление.
  */
 @RunWith(AndroidJUnit4::class)
 class FirebaseTaskRepositoryImplTest {
     private lateinit var repository: TaskRepository
-    private lateinit var db: FirebaseFirestore
 
     @Before
     fun setup() {
         FirebaseEmulatorConfig.connect()
         repository = FirebaseTaskRepositoryImpl()
-        db = FirebaseFirestore.getInstance()
     }
 
     @Test
-    fun readQueriesAndDeleteWorkflow() {
+    fun addReadUpdateQueryAndDeleteWorkflow() {
         runBlocking {
             val uniqueSuffix = System.currentTimeMillis()
             val title = "Тестовая задача $uniqueSuffix"
             val projectId = "test_project_$uniqueSuffix"
-            val taskId = "test_task_$uniqueSuffix"
-            val taskRef = db.collection("Task").document(taskId)
-            val schema =
-                TaskSchema(
-                    id = taskId,
-                    projectRef = db.collection("Project").document(projectId),
-                    authorRef = db.collection("users").document("test_author"),
-                    executorRef = db.collection("users").document("test_assignee"),
+            val deadline = LocalDateTime.of(2026, 1, 1, 12, 0)
+            val task =
+                TaskAddDto(
                     title = title,
                     description = "Описание задачи для интеграционного теста",
-                    deadline = LocalDateTime.of(2026, 1, 1, 12, 0),
+                    projectId = projectId,
+                    authorId = "test_author",
+                    assigneeId = "test_assignee",
+                    deadline = deadline,
+                    status = TaskStatus.IN_PROGRESS,
                 )
-            taskRef.set(schema.toMap()).await()
 
+            val created = repository.addTask(task).getOrThrow()
             try {
-                val fetchedById = repository.getById(taskId).getOrThrow()
+                assertTrue("ID созданной задачи должен быть заполнен", created.id.isNotBlank())
+                assertEquals(title, created.title)
+                assertEquals(projectId, created.projectId)
+                assertEquals("test_author", created.authorId)
+                assertEquals("test_assignee", created.assigneeId)
+                assertEquals(deadline, created.deadline)
+                assertEquals(TaskStatus.IN_PROGRESS, created.status)
+
+                val fetchedById = repository.getById(created.id).getOrThrow()
                 assertEquals(title, fetchedById.title)
-                assertEquals(projectId, fetchedById.projectId)
-                assertEquals("test_author", fetchedById.authorId)
-                assertEquals("test_assignee", fetchedById.assigneeIds)
+                assertEquals(TaskStatus.IN_PROGRESS, fetchedById.status)
 
                 val byTitle = repository.getByTitle(title).getOrThrow()
                 assertTrue(
                     "Задача должна находиться по заголовку",
-                    byTitle.any { it.id == taskId },
+                    byTitle.any { it.id == created.id },
                 )
 
                 val byProject = repository.getByProjectId(projectId).getOrThrow()
                 assertTrue(
                     "Задача должна находиться по проекту",
-                    byProject.any { it.id == taskId },
+                    byProject.any { it.id == created.id },
+                )
+
+                val newTitle = "$title — обновлено"
+                val newDeadline = deadline.plusDays(1)
+                val updated =
+                    repository
+                        .updateTask(
+                            id = created.id,
+                            update =
+                                TaskUpdateDto(
+                                    title = newTitle,
+                                    description = "Обновлённое описание",
+                                    deadline = newDeadline,
+                                    status = TaskStatus.DONE,
+                                ),
+                        ).getOrThrow()
+
+                assertEquals(created.id, updated.id)
+                assertEquals(newTitle, updated.title)
+                assertEquals(newDeadline, updated.deadline)
+                assertEquals(TaskStatus.DONE, updated.status)
+                assertEquals("test_assignee", updated.assigneeId)
+
+                val reloaded = repository.getById(created.id).getOrThrow()
+                assertEquals(newTitle, reloaded.title)
+                assertEquals(TaskStatus.DONE, reloaded.status)
+
+                assertTrue(
+                    "Обновление без ID должно вернуть ошибку",
+                    repository.updateTask("", TaskUpdateDto(title = "Без ID")).isFailure,
+                )
+                assertTrue(
+                    "Пустой DTO должен вернуть ошибку",
+                    repository.updateTask(created.id, TaskUpdateDto()).isFailure,
                 )
             } finally {
-                repository.deleteTask(taskId)
+                repository.deleteTask(created.id).getOrThrow()
             }
 
             assertTrue(
                 "Задача должна быть удалена",
-                repository.getById(taskId).isFailure,
+                repository.getById(created.id).isFailure,
             )
         }
     }

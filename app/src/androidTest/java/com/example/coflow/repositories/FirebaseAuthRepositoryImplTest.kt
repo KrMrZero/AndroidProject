@@ -1,4 +1,4 @@
-package com.example.coflow.data.firebase
+package com.example.coflow.repositories
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.runBlocking
@@ -33,14 +33,15 @@ class FirebaseAuthRepositoryImplTest {
             val name = "Тестовый Пользователь"
 
             val registered = repository.register(email, password, name).getOrThrow()
-            assertTrue("UID не должен быть пустым", registered.id.isNotBlank())
+            assertTrue("UID не должен быть пустым", registered.uid.isNotBlank())
             assertEquals(email, registered.email)
             assertEquals(name, registered.name)
 
             val loggedIn = repository.login(email, password).getOrThrow()
-            assertEquals("UID после входа должен совпадать", registered.id, loggedIn.id)
+            assertEquals("UID после входа должен совпадать", registered.uid, loggedIn.uid)
             assertEquals(email, loggedIn.email)
-            assertEquals(registered.id, repository.getCurrentUserUid())
+            assertEquals(name, loggedIn.name)
+            assertEquals(registered.uid, repository.getCurrentUserUid())
         }
     }
 
