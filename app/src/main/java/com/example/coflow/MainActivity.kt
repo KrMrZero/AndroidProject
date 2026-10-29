@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CoFlowTheme {
-                var isAuthenticated by remember { mutableStateOf(true) }
+                var isAuthenticated by remember { mutableStateOf(false) }
 
                 if (isAuthenticated) {
                     val navController = rememberNavController()
