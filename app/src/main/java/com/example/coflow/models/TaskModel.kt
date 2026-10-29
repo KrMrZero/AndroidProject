@@ -8,7 +8,7 @@ data class TaskModel(
     val description: String = "",
     val projectId: String = "",
     val authorId: String = "",
-    val assigneeIds: String = "",
+    val assigneeId: String = "",
     val deadline: LocalDateTime = LocalDateTime.now(),
     val status: TaskStatus = TaskStatus.TODO,
 )

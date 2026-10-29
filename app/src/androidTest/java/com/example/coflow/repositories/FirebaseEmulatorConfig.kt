@@ -1,4 +1,4 @@
-package com.example.coflow.data.firebase
+package com.example.coflow.repositories
 
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
