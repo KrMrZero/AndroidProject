@@ -138,4 +138,9 @@
     </plurals>
 
     <string name="deadline_header">Дата окончания</string>
+
+    <!-- Общие сообщения -->
+    <string name="error_title">Ошибка</string>
+    <string name="ok_button">ОК</string>
+    <string name="no_tasks_placeholder">Нет задач</string>
 </resources>

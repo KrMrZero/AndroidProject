@@ -1,6 +1,13 @@
 package com.example.coflow.ui.tasks
 
 import androidx.lifecycle.ViewModel
+import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.AuthRepository
+import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
+import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
+import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
+import com.example.coflow.repositories.ProjectRepository
+import com.example.coflow.repositories.TaskRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,10 +16,13 @@ import kotlinx.coroutines.flow.update
 enum class TaskGrouping { STATUS, DEADLINE }
 
 data class TaskRowUi(
-    val id: Int,
+    val id: String,
     val title: String,
     val projectName: String,
+    val authorId: String,
+    val assigneeId: String,
     val dueDateFormatted: String,
+    val status: TaskStatus,
     val isDone: Boolean,
     val isOverdue: Boolean,
 )
@@ -34,18 +44,75 @@ data class TasksUiState(
     val filterButtonText: String,
     val availableFilters: List<String>,
     val isBottomBarVisible: Boolean,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val allTaskRows: List<TaskRowUi> = emptyList(),
 )
 
-class TasksScreenViewModel : ViewModel() {
+class TasksScreenViewModel(
+    private val taskRepository: TaskRepository = FirebaseTaskRepositoryImpl(),
+    private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
+    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+) : ViewModel() {
     // Данные для заглушки
     private val stubTasks =
         listOf(
-            TaskRowUi(1, "Обновить иконки навигации", "Дизайн-система", "30.10.26", isDone = false, isOverdue = false),
-            TaskRowUi(2, "Согласовать ТЗ с заказчиком", "Сайт", "01.11.26", isDone = false, isOverdue = false),
-            TaskRowUi(3, "Разработать онбординг", "Мобильное приложение", "24.10.26", isDone = false, isOverdue = true),
-            TaskRowUi(4, "Настроить CI/CD", "Бэкенд", "28.10.26", isDone = false, isOverdue = false),
-            TaskRowUi(5, "Провести ревью кода", "Бэкенд", "20.10.26", isDone = true, isOverdue = false),
-            TaskRowUi(6, "Написать тесты", "Бэкенд", "22.10.26", isDone = true, isOverdue = false),
+            TaskRowUi(
+                "1",
+                "Обновить иконки навигации",
+                "Дизайн-система",
+                "user_1",
+                "user_1",
+                "30.10.26",
+                TaskStatus.TODO,
+                isDone = false,
+                isOverdue = false,
+            ),
+            TaskRowUi(
+                "2",
+                "Согласовать ТЗ с заказчиком",
+                "Сайт",
+                "user_2",
+                "user_1",
+                "01.11.26",
+                TaskStatus.TODO,
+                isDone = false,
+                isOverdue = false,
+            ),
+            TaskRowUi(
+                "3",
+                "Разработать онбординг",
+                "Мобильное приложение",
+                "user_1",
+                "user_3",
+                "24.10.26",
+                TaskStatus.IN_PROGRESS,
+                isDone = false,
+                isOverdue = true,
+            ),
+            TaskRowUi(
+                "4",
+                "Настроить CI/CD",
+                "Бэкенд",
+                "user_3",
+                "user_2",
+                "28.10.26",
+                TaskStatus.IN_PROGRESS,
+                isDone = false,
+                isOverdue = false,
+            ),
+            TaskRowUi(
+                "5",
+                "Провести ревью кода",
+                "Бэкенд",
+                "user_2",
+                "user_1",
+                "20.10.26",
+                TaskStatus.DONE,
+                isDone = true,
+                isOverdue = false,
+            ),
+            TaskRowUi("6", "Написать тесты", "Бэкенд", "user_1", "user_1", "22.10.26", TaskStatus.DONE, isDone = true, isOverdue = false),
         )
 
     private val _uiState = MutableStateFlow(createInitialState())
@@ -64,23 +131,15 @@ class TasksScreenViewModel : ViewModel() {
             filterButtonText = "Без фильтра",
             availableFilters = listOf("Без фильтра", "Мои задачи", "Проект: Дизайн-система", "Проект: Мобильное приложение"),
             isBottomBarVisible = true,
+            allTaskRows = stubTasks,
         )
     }
 
     // --- Обработчики событий от UI ---
 
     fun onGroupingChange(grouping: TaskGrouping) {
-        _uiState.update { state ->
-            val newGroups =
-                when (grouping) {
-                    TaskGrouping.STATUS -> groupTasksByStatus(stubTasks)
-                    TaskGrouping.DEADLINE -> groupTasksByDeadline(stubTasks)
-                }
-            state.copy(
-                currentGrouping = grouping,
-                groups = newGroups,
-            )
-        }
+        _uiState.update { it.copy(currentGrouping = grouping) }
+        applyFiltersAndGrouping()
     }
 
     fun onFilterToggle(filter: String) {
@@ -104,6 +163,7 @@ class TasksScreenViewModel : ViewModel() {
                 filterButtonText = buttonText,
             )
         }
+        applyFiltersAndGrouping()
     }
 
     fun onToggleGroup(groupId: String) {
@@ -120,6 +180,36 @@ class TasksScreenViewModel : ViewModel() {
         }
     }
 
+    private fun applyFiltersAndGrouping() {
+        _uiState.update { state ->
+            var filtered = state.allTaskRows
+
+            if (state.selectedFilters.isNotEmpty()) {
+                if (state.selectedFilters.contains("Мои задачи")) {
+                    val currentUid = "user_1" // Временно для тестов!
+                    filtered = filtered.filter { it.authorId == currentUid || it.assigneeId == currentUid }
+                }
+
+                val selectedProjects = state.selectedFilters.filter { it.startsWith("Проект: ") }.map { it.removePrefix("Проект: ") }
+                if (selectedProjects.isNotEmpty()) {
+                    filtered = filtered.filter { selectedProjects.contains(it.projectName) }
+                }
+            }
+
+            val newGroups =
+                when (state.currentGrouping) {
+                    TaskGrouping.STATUS -> groupTasksByStatus(filtered)
+                    TaskGrouping.DEADLINE -> groupTasksByDeadline(filtered)
+                }
+
+            state.copy(
+                groups = newGroups,
+                activeCount = filtered.count { !it.isDone },
+                completedCount = filtered.count { it.isDone },
+            )
+        }
+    }
+
     fun onNotificationClick() {
         // Заглушка: здесь можно отправить событие или ничего не делать
     }
@@ -127,10 +217,9 @@ class TasksScreenViewModel : ViewModel() {
     // --- Вспомогательные функции для группировки ---
 
     private fun groupTasksByStatus(tasks: List<TaskRowUi>): List<TaskGroupUi> {
-        val todo = tasks.filter { !it.isDone && !it.isOverdue }
-        // Упрощение для заглушки: считаем "В процессе" те задачи, которые не выполнены, но просрочены
-        val inProgress = tasks.filter { !it.isDone && it.isOverdue }
-        val done = tasks.filter { it.isDone }
+        val todo = tasks.filter { it.status == TaskStatus.TODO }
+        val inProgress = tasks.filter { it.status == TaskStatus.IN_PROGRESS }
+        val done = tasks.filter { it.status == TaskStatus.DONE }
 
         return listOf(
             TaskGroupUi("TODO", "К исполнению", todo.size, isExpanded = true, tasks = todo),
@@ -149,5 +238,9 @@ class TasksScreenViewModel : ViewModel() {
             TaskGroupUi("UPCOMING", "Предстоящие", upcoming.size, isExpanded = false, tasks = upcoming),
             TaskGroupUi("COMPLETED", "Завершенные", done.size, isExpanded = false, tasks = done),
         )
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 }
