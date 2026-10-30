@@ -36,8 +36,6 @@ import com.example.coflow.R
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.ui.components.*
 import com.example.coflow.ui.theme.*
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 @Composable
 fun TasksScreen(
@@ -179,7 +177,11 @@ private fun TaskGroupCard(
         if (group.isExpanded) {
             if (group.tasks.isEmpty()) {
                 Spacer(Modifier.height(8.dp))
-                Text(text = "Нет задач", fontSize = 11.sp, color = CoFlowColors.TextSecondary)
+                Text(
+                    text = stringResource(R.string.no_tasks_placeholder),
+                    fontSize = 11.sp,
+                    color = CoFlowColors.TextSecondary,
+                )
             } else {
                 Spacer(Modifier.height(3.dp))
                 group.tasks.forEachIndexed { index, task ->
@@ -198,7 +200,6 @@ private fun TaskRow(
     task: TaskRowUi,
     onClick: () -> Unit,
 ) {
-    val formatter = remember { DateTimeFormatter.ofPattern("dd.MM.yy") }
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).clickable { onClick() }) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(

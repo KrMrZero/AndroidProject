@@ -1,6 +1,8 @@
 package com.example.coflow.ui.tasks
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
@@ -12,6 +14,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 enum class TaskGrouping { STATUS, DEADLINE }
 
@@ -54,85 +60,88 @@ class TasksScreenViewModel(
     private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
 ) : ViewModel() {
-    // Данные для заглушки
-    private val stubTasks =
-        listOf(
-            TaskRowUi(
-                "1",
-                "Обновить иконки навигации",
-                "Дизайн-система",
-                "user_1",
-                "user_1",
-                "30.10.26",
-                TaskStatus.TODO,
-                isDone = false,
-                isOverdue = false,
+    private val _uiState =
+        MutableStateFlow(
+            TasksUiState(
+                activeCount = 0,
+                completedCount = 0,
+                groups = emptyList(),
+                currentGrouping = TaskGrouping.STATUS,
+                selectedFilters = emptySet(),
+                filterButtonText = "Без фильтра",
+                availableFilters = emptyList(),
+                isBottomBarVisible = true,
+                isLoading = true, // Сразу показываем крутилку
             ),
-            TaskRowUi(
-                "2",
-                "Согласовать ТЗ с заказчиком",
-                "Сайт",
-                "user_2",
-                "user_1",
-                "01.11.26",
-                TaskStatus.TODO,
-                isDone = false,
-                isOverdue = false,
-            ),
-            TaskRowUi(
-                "3",
-                "Разработать онбординг",
-                "Мобильное приложение",
-                "user_1",
-                "user_3",
-                "24.10.26",
-                TaskStatus.IN_PROGRESS,
-                isDone = false,
-                isOverdue = true,
-            ),
-            TaskRowUi(
-                "4",
-                "Настроить CI/CD",
-                "Бэкенд",
-                "user_3",
-                "user_2",
-                "28.10.26",
-                TaskStatus.IN_PROGRESS,
-                isDone = false,
-                isOverdue = false,
-            ),
-            TaskRowUi(
-                "5",
-                "Провести ревью кода",
-                "Бэкенд",
-                "user_2",
-                "user_1",
-                "20.10.26",
-                TaskStatus.DONE,
-                isDone = true,
-                isOverdue = false,
-            ),
-            TaskRowUi("6", "Написать тесты", "Бэкенд", "user_1", "user_1", "22.10.26", TaskStatus.DONE, isDone = true, isOverdue = false),
         )
-
-    private val _uiState = MutableStateFlow(createInitialState())
     val uiState: StateFlow<TasksUiState> = _uiState.asStateFlow()
 
-    private fun createInitialState(): TasksUiState {
-        val activeTasks = stubTasks.count { !it.isDone }
-        val completedTasks = stubTasks.count { it.isDone }
+    private var currentUid: String? = null
 
-        return TasksUiState(
-            activeCount = activeTasks,
-            completedCount = completedTasks,
-            groups = groupTasksByStatus(stubTasks),
-            currentGrouping = TaskGrouping.STATUS,
-            selectedFilters = emptySet(),
-            filterButtonText = "Без фильтра",
-            availableFilters = listOf("Без фильтра", "Мои задачи", "Проект: Дизайн-система", "Проект: Мобильное приложение"),
-            isBottomBarVisible = true,
-            allTaskRows = stubTasks,
-        )
+    init {
+        loadTasks() // Запускаем загрузку при старте экрана
+    }
+
+    private fun loadTasks() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            currentUid = authRepository.getCurrentUserUid()
+
+            if (currentUid == null) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Пользователь не авторизован") }
+                return@launch
+            }
+
+            // Загружаем проекты пользователя
+            projectRepository.getByUserId(currentUid!!).fold(
+                onSuccess = { projects ->
+                    val allFetchedTasks = mutableListOf<TaskModel>()
+                    // Создаем мапу ID -> Название, чтобы быстро подставлять имя проекта в UI
+                    val projectMap = projects.associateBy { it.id }
+
+                    // Загружаем задачи для каждого проекта
+                    projects.forEach { project ->
+                        taskRepository.getByProjectId(project.id).getOrNull()?.let { tasks ->
+                            allFetchedTasks.addAll(tasks)
+                        }
+                    }
+
+                    // Превращаем TaskModel в TaskRowUi
+                    val taskRows =
+                        allFetchedTasks.map { task ->
+                            TaskRowUi(
+                                id = task.id,
+                                title = task.title,
+                                projectName = projectMap[task.projectId]?.title ?: "Без проекта",
+                                authorId = task.authorId,
+                                assigneeId = task.assigneeId,
+                                dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
+                                status = task.status,
+                                isDone = task.status == TaskStatus.DONE,
+                                // Firestore хранит даты в UTC, поэтому и текущее время берём в UTC.
+                                // Иначе на устройствах с другим часовым поясом задача может
+                                // считаться просроченной раньше или позже реального дедлайна.
+                                isOverdue = task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
+                            )
+                        }
+
+                    // Обновляем стейт: убираем загрузку, кидаем задачи и формируем фильтры
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoading = false,
+                            allTaskRows = taskRows,
+                            availableFilters = listOf("Без фильтра", "Мои задачи") + projects.map { "Проект: ${it.title}" },
+                        )
+                    }
+
+                    // Сразу применяем фильтры и группировку
+                    applyFiltersAndGrouping()
+                },
+                onFailure = { error ->
+                    _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Ошибка загрузки проектов") }
+                },
+            )
+        }
     }
 
     // --- Обработчики событий от UI ---
@@ -185,8 +194,7 @@ class TasksScreenViewModel(
             var filtered = state.allTaskRows
 
             if (state.selectedFilters.isNotEmpty()) {
-                if (state.selectedFilters.contains("Мои задачи")) {
-                    val currentUid = "user_1" // Временно для тестов!
+                if (state.selectedFilters.contains("Мои задачи") && currentUid != null) {
                     filtered = filtered.filter { it.authorId == currentUid || it.assigneeId == currentUid }
                 }
 
