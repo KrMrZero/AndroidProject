@@ -123,7 +123,7 @@
 
     <!-- Описание задачи-->
     <string name="description_header">Описание</string>
-    <string name="description_placeholder">Описание отсутстсвует</string>
+    <string name="description_placeholder">Описание отсутствует</string>
 
     <string name="author_header">Автор задачи</string>
     <string name="author_placeholder">Неизвестно</string>
