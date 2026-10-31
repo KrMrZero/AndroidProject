@@ -11,6 +11,7 @@
     <string name="choose_project_header">Выбор проекта</string>
     <string name="choose_date_header">Дата окончания</string>
     <string name="choose_assignee_header">Добавить исполнителя</string>
+    <string name="edit_task_header">Редактирование задачи</string>
     <string name="task_description_header">Задача</string>
 
     <!-- Поля ввода -->
@@ -57,6 +58,9 @@
     <string name="done_button">Готово</string>
 
     <string name="add_assignee_button">Добавить исполнителей</string>
+
+    <string name="edit_task_save_button">Сохранить изменения</string>
+    <string name="edit_task_delete_button">Удалить задачу</string>
 
     <!-- Ошибки -->
     <string name="auth_error_invalid_contact">Проверьте формат почты или телефона</string>
@@ -120,6 +124,16 @@
         <item quantity="many">Выбрано %d исполнителей</item>
         <item quantity="other">Выбрано %d исполнителей</item>
     </plurals>
+
+    <!-- Сообщения редактирования задачи -->
+    <string name="edit_task_saved">Задача сохранена</string>
+    <string name="edit_task_invalid_date">Проверьте дату</string>
+
+    <!-- Диалог подтверждения удаления -->
+    <string name="edit_task_delete_dialog_title">Удаление задачи</string>
+    <string name="edit_task_delete_dialog_message">Вы действительно хотите удалить эту задачу?</string>
+    <string name="edit_task_delete_confirm">Я уверен</string>
+    <string name="edit_task_delete_cancel">Отмена</string>
 
     <!-- Описание задачи-->
     <string name="description_header">Описание</string>

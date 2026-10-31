@@ -23,6 +23,7 @@ import com.example.coflow.ui.tasks.ChooseDateRoute
 import com.example.coflow.ui.tasks.ChooseProjectRoute
 import com.example.coflow.ui.tasks.CreateTaskRoute
 import com.example.coflow.ui.tasks.CreateTaskViewModel
+import com.example.coflow.ui.tasks.EditTaskRoute
 import com.example.coflow.ui.tasks.TaskDetailRoute
 import com.example.coflow.ui.tasks.TaskDetailScreen
 import com.example.coflow.ui.tasks.TaskDetailUiState
@@ -36,8 +37,10 @@ object Screen {
     const val CHOOSE_ASSIGNEE = "choose_assignee"
     const val CHOOSE_PROJECT = "choose_project"
     const val CHOOSE_DATE = "choose_date"
+
     const val TASK_DETAIL = "task_detail/{taskId}"
     const val PROJECTS = "projects"
+    const val EDIT_TASK = "edit_task/{taskId}"
 }
 
 class MainActivity : ComponentActivity() {
@@ -62,7 +65,7 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToCreateTask = { navController.navigate(Screen.CREATE_TASK) },
                                 onNavigateToTaskDetail = { taskId -> navController.navigate("task_detail/$taskId") },
                                 onNavigateToProjects = { navController.navigate(Screen.PROJECTS) },
-                                onNavigateToProfile = {  }
+                                onNavigateToProfile = { },
                             )
                         }
 
@@ -70,26 +73,45 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.PROJECTS) {
                             ProjectsRoute(
                                 onNavigateToCreateProject = {
-                                    android.widget.Toast.makeText(
-                                        this@MainActivity,
-                                        "Добавление проекта ляля",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
+                                    android.widget.Toast
+                                        .makeText(
+                                            this@MainActivity,
+                                            "Добавление проекта ляля",
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
                                 },
-                                onNavigateToTasks = { navController.popBackStack() }
+                                onNavigateToTasks = { navController.popBackStack() },
                             )
                         }
 
                         // Экран просмотра задачи
                         composable(
                             route = Screen.TASK_DETAIL,
-                            arguments = listOf(navArgument("taskId") { type = NavType.StringType })
+                            arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
                         ) {
                             TaskDetailRoute(
                                 onNavigateBack = { navController.popBackStack() },
-                                onNavigateToEdit = { taskId ->
-                                    // TODO: Раскомментировать, когда будет экран редактирования
-                                }
+                                onNavigateToEdit = { taskId -> navController.navigate("edit_task/$taskId") },
+                            )
+                        }
+                        // Экран редактирования задачи
+                        composable(
+                            route = Screen.EDIT_TASK,
+                            arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
+                        ) {
+                            EditTaskRoute(
+                                onNavigateBack = { navController.popBackStack() },
+                                onTaskSaved = { updatedTask ->
+                                    // TODO: Здесь вызов Repository для сохранения: tasksRepository.updateTask(updatedTask)
+                                    navController.popBackStack()
+                                },
+                                onTaskDeleted = { taskId ->
+                                    // TODO: Здесь вызов Repository для удаления: tasksRepository.deleteTask(taskId)
+                                    navController.popBackStack()
+                                },
+                                onNavigateToAssignees = { navController.navigate(Screen.CHOOSE_ASSIGNEE) },
+                                onNavigateToProject = { navController.navigate(Screen.CHOOSE_PROJECT) },
+                                onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) },
                             )
                         }
 
@@ -104,7 +126,7 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToAssignees = { navController.navigate(Screen.CHOOSE_ASSIGNEE) },
                                 onNavigateToProject = { navController.navigate(Screen.CHOOSE_PROJECT) },
                                 onNavigateToDate = { navController.navigate(Screen.CHOOSE_DATE) },
-                                viewModel = createTaskViewModel
+                                viewModel = createTaskViewModel,
                             )
                         }
 
@@ -116,7 +138,7 @@ class MainActivity : ComponentActivity() {
                                     createTaskViewModel.confirmAssigneeSelection(assignees)
                                     navController.popBackStack()
                                 },
-                                viewModel = createTaskViewModel
+                                viewModel = createTaskViewModel,
                             )
                         }
 
@@ -128,7 +150,7 @@ class MainActivity : ComponentActivity() {
                                     createTaskViewModel.confirmProjectSelection(project)
                                     navController.popBackStack()
                                 },
-                                viewModel = createTaskViewModel
+                                viewModel = createTaskViewModel,
                             )
                         }
 
@@ -140,11 +162,9 @@ class MainActivity : ComponentActivity() {
                                     createTaskViewModel.confirmDateSelection(date)
                                     navController.popBackStack()
                                 },
-                                viewModel = createTaskViewModel
+                                viewModel = createTaskViewModel,
                             )
                         }
-
-
                     }
                 } else {
                     AuthRoute(onAuthSuccess = { isAuthenticated = true })

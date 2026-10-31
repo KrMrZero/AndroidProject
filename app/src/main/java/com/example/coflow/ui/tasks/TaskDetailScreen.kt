@@ -284,6 +284,7 @@ fun TaskDetailScreen_InProgressOverdue_Preview() {
         TaskDetailScreen(
             state =
                 TaskDetailUiState(
+                    id = 4,
                     title = "Разработать новый онбординг для пользователей",
                     status = TaskStatusUi.IN_PROGRESS,
                     projectName = "Мобильное приложение",
@@ -310,6 +311,7 @@ fun TaskDetailScreen_Todo_Preview() {
         TaskDetailScreen(
             state =
                 TaskDetailUiState(
+                    id = 1,
                     title = "Обновить иконки в навигации",
                     status = TaskStatusUi.TODO,
                     projectName = "Дизайн-система",
@@ -336,6 +338,7 @@ private fun TaskDetailScreen_Done_Preview() {
         TaskDetailScreen(
             state =
                 TaskDetailUiState(
+                    id = 5,
                     title = "Провести ревью кода модуля авторизации",
                     status = TaskStatusUi.DONE,
                     projectName = "Бэкенд",

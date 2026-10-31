@@ -17,6 +17,7 @@ enum class TaskStatusUi {
 }
 
 data class TaskDetailUiState(
+    val id: Int,
     val title: String,
     val status: TaskStatusUi,
     val projectName: String,
@@ -40,9 +41,11 @@ class TaskDetailScreenViewModel(
     private val _uiState = MutableStateFlow<TaskDetailUiState?>(null)
     val uiState: StateFlow<TaskDetailUiState?> = _uiState.asStateFlow()
 
+    private val taskId: Int
+
     init {
         // Читаем taskId из маршрута "task_detail/{taskId}"
-        val taskId = savedStateHandle.get<String>("taskId")?.toIntOrNull() ?: 1
+        taskId = savedStateHandle.get<String>("taskId")?.toIntOrNull() ?: 1
         loadTask(taskId)
     }
 
@@ -83,6 +86,7 @@ class TaskDetailScreenViewModel(
 
     fun onEditClick() {
         viewModelScope.launch {
+            _uiEvent.send(UiEvent.NavigateToEdit(taskId))
         }
     }
 
@@ -98,6 +102,7 @@ class TaskDetailScreenViewModel(
         when (taskId) {
             1 -> {
                 TaskDetailUiState(
+                    id = 1,
                     title = "Обновить иконки в навигации",
                     status = TaskStatusUi.TODO,
                     projectName = "Дизайн-система",
@@ -114,6 +119,7 @@ class TaskDetailScreenViewModel(
 
             3 -> {
                 TaskDetailUiState(
+                    id = 3,
                     title = "Разработать новый онбординг для пользователей",
                     status = TaskStatusUi.IN_PROGRESS,
                     projectName = "Мобильное приложение",
@@ -130,6 +136,7 @@ class TaskDetailScreenViewModel(
 
             else -> {
                 TaskDetailUiState(
+                    id = 2,
                     title = "Провести ревью кода модуля авторизации",
                     status = TaskStatusUi.DONE,
                     projectName = "Бэкенд",
