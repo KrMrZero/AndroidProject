@@ -2,13 +2,28 @@ package com.example.coflow.ui.tasks
 
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.AuthRepository
+import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
+import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
+import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
+import com.example.coflow.repositories.ProjectRepository
+import com.example.coflow.repositories.TaskRepository
+import com.example.coflow.repositories.dto.TaskAddDto
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 
 // Модель данных исполнителя задачи.
 data class Assignee(
@@ -95,7 +110,12 @@ data class CreateTaskUiState(
  * ViewModel для управления состоянием создания задачи.
  * Координирует данные между основным экраном и экранами выбора (исполнитель, проект, дата).
  */
-class CreateTaskViewModel : ViewModel() {
+class CreateTaskViewModel(
+    private val taskRepository: TaskRepository = FirebaseTaskRepositoryImpl(),
+    private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
+    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
+) : ViewModel() {
     private val _state = MutableStateFlow(CreateTaskUiState())
     val state: StateFlow<CreateTaskUiState> = _state.asStateFlow()
 
@@ -105,23 +125,87 @@ class CreateTaskViewModel : ViewModel() {
     }
 
     private fun loadAssignees() {
-        // TODO: заменить на вызов репозитория
-        val demo =
-            listOf(
-                Assignee("1", "Анна Смирнова", "anna.s@example.com", "АС", Color(0xFF6B9AF3)),
-                Assignee("2", "Михаил Орлов", "m.orlov@example.com", "МО", Color(0xFFA3B8CC)),
-                Assignee("3", "Елена Волкова", "elena.v@example.com", "ЕВ", Color(0xFF86D3B5)),
-                Assignee("4", "Дмитрий Соколов", "d.sokolov@example.com", "ДС", Color(0xFF8BB8F8)),
-                Assignee("5", "Мария Козлова", "maria.k@example.com", "МК", Color(0xFFAFA3F8)),
-            )
+        viewModelScope.launch {
+            try {
+                val snapshot = db.collection("users").get().await()
+                val assignees =
+                    snapshot.documents.mapNotNull { doc ->
+                        val uid = doc.id
+                        val name = doc.getString("name").orEmpty()
+                        val email = doc.getString("email").orEmpty()
+                        val isDeleted = doc.getBoolean("is_deleted") ?: doc.getBoolean("isDeleted") ?: false
+                        if (isDeleted) return@mapNotNull null
 
-        _state.update { it.copy(allAssignees = demo) }
+                        val displayName = name.ifBlank { email }
+                        val initials = getInitials(displayName)
+                        val avatarColor = getAvatarColor(uid)
+
+                        Assignee(
+                            id = uid,
+                            name = displayName,
+                            email = email,
+                            initials = initials,
+                            avatarColor = avatarColor,
+                        )
+                    }
+                _state.update { it.copy(allAssignees = assignees) }
+            } catch (_: Exception) {
+                // При ошибке сетевого запроса список остаётся пустым
+            }
+        }
     }
 
     private fun loadProjects() {
-        // TODO: заменить на вызов репозитория
-        val demo = listOf("Проект 1", "Проект 2", "Проект 3", "Проект 4", "Проект 5")
-        _state.update { it.copy(allProjects = demo) }
+        viewModelScope.launch {
+            try {
+                val uid = authRepository.getCurrentUserUid().orEmpty()
+                val projectList = mutableListOf<String>()
+
+                if (uid.isNotBlank()) {
+                    val userProjectsResult = projectRepository.getByUserId(uid)
+                    val ownerProjectsResult = projectRepository.getByOwnerId(uid)
+
+                    val projects =
+                        (
+                            userProjectsResult.getOrDefault(emptyList()) +
+                                ownerProjectsResult.getOrDefault(emptyList())
+                        ).distinctBy { it.id }
+                            .filterNot { it.isDeleted }
+                            .map { it.title }
+
+                    projectList.addAll(projects)
+                }
+
+                _state.update { it.copy(allProjects = projectList.distinct()) }
+            } catch (_: Exception) {
+                // При ошибке список остаётся пустым
+            }
+        }
+    }
+
+    private fun getInitials(name: String): String {
+        val parts = name.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+        return when {
+            parts.isEmpty() -> "??"
+            parts.size == 1 -> parts[0].take(2).uppercase()
+            else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
+        }
+    }
+
+    private fun getAvatarColor(id: String): Color {
+        val colors =
+            listOf(
+                Color(0xFF6B9AF3),
+                Color(0xFFA3B8CC),
+                Color(0xFF86D3B5),
+                Color(0xFF8BB8F8),
+                Color(0xFFAFA3F8),
+                Color(0xFFF39C12),
+                Color(0xFFE74C3C),
+                Color(0xFF9B59B6),
+            )
+        val hash = abs(id.hashCode())
+        return colors[hash % colors.size]
     }
 
     // --- Обработчики основных полей ---
@@ -130,7 +214,6 @@ class CreateTaskViewModel : ViewModel() {
     }
 
     fun onDescriptionChange(value: String) {
-        // Описание ограничено 250 символами, как и в UI
         _state.update { it.copy(description = value.take(250), descriptionError = null) }
     }
 
@@ -202,17 +285,98 @@ class CreateTaskViewModel : ViewModel() {
     fun onCreateTask(onTaskCreated: (CreateTaskFormData) -> Unit) {
         val current = _state.value
 
-        // Валидация: название — обязательное поле
-        if (current.title.isBlank()) return
+        var hasError = false
+        var titleErr: String? = null
+        var descErr: String? = null
 
-        onTaskCreated(
-            CreateTaskFormData(
-                title = current.title.trim(),
-                description = current.description.trim(),
-                assignees = current.assignees,
-                project = current.project.trim(),
-                dueDate = current.dueDate.trim(),
-            ),
-        )
+        // Валидация: название — обязательное поле
+        if (current.title.isBlank()) {
+            titleErr = "Название задачи не может быть пустым"
+            hasError = true
+        }
+
+        // Валидация: ограничение описания 250 символами
+        if (current.description.length > 250) {
+            descErr = "Описание не должно превышать 250 символов"
+            hasError = true
+        }
+
+        if (hasError) {
+            _state.update {
+                it.copy(
+                    titleError = titleErr,
+                    descriptionError = descErr,
+                )
+            }
+            return
+        }
+
+        _state.update {
+            it.copy(
+                isSubmitting = true,
+                titleError = null,
+                descriptionError = null,
+            )
+        }
+
+        viewModelScope.launch {
+            val authorId = authRepository.getCurrentUserUid().orEmpty()
+            val assigneeId =
+                current.assignees
+                    .firstOrNull()
+                    ?.id
+                    .orEmpty()
+
+            var projectId = ""
+            if (current.project.isNotBlank() && authorId.isNotBlank()) {
+                val userProjects = projectRepository.getByUserId(authorId).getOrDefault(emptyList())
+                val ownerProjects = projectRepository.getByOwnerId(authorId).getOrDefault(emptyList())
+                val allProjectsList = (userProjects + ownerProjects).distinctBy { it.id }
+                projectId = allProjectsList.firstOrNull { it.title == current.project }?.id.orEmpty()
+            }
+
+            val deadlineDateTime =
+                try {
+                    LocalDateTime.of(current.selectedDueDate, LocalTime.MIDNIGHT)
+                } catch (_: Exception) {
+                    LocalDateTime.now()
+                }
+
+            val taskDto =
+                TaskAddDto(
+                    title = current.title.trim(),
+                    description = current.description.trim(),
+                    projectId = projectId,
+                    authorId = authorId,
+                    assigneeId = assigneeId,
+                    deadline = deadlineDateTime,
+                    status = TaskStatus.TODO,
+                )
+
+            val result = taskRepository.addTask(taskDto)
+
+            result.fold(
+                onSuccess = {
+                    _state.update { it.copy(isSubmitting = false) }
+                    onTaskCreated(
+                        CreateTaskFormData(
+                            title = current.title.trim(),
+                            description = current.description.trim(),
+                            assignees = current.assignees,
+                            project = current.project.trim(),
+                            dueDate = current.dueDate.trim(),
+                        ),
+                    )
+                },
+                onFailure = { error ->
+                    _state.update {
+                        it.copy(
+                            isSubmitting = false,
+                            titleError = error.message ?: "Ошибка создания задачи",
+                        )
+                    }
+                },
+            )
+        }
     }
 }
