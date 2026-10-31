@@ -25,6 +25,7 @@ import com.example.coflow.ui.tasks.ChooseDateRoute
 import com.example.coflow.ui.tasks.ChooseProjectRoute
 import com.example.coflow.ui.tasks.CreateTaskRoute
 import com.example.coflow.ui.tasks.CreateTaskViewModel
+import com.example.coflow.ui.tasks.EditTaskRoute
 import com.example.coflow.ui.tasks.TaskDetailRoute
 import com.example.coflow.ui.tasks.TasksRoute
 import com.example.coflow.ui.theme.CoFlowTheme
@@ -35,8 +36,10 @@ object Screen {
     const val CHOOSE_ASSIGNEE = "choose_assignee"
     const val CHOOSE_PROJECT = "choose_project"
     const val CHOOSE_DATE = "choose_date"
+
     const val TASK_DETAIL = "task_detail/{taskId}"
     const val PROJECTS = "projects"
+    const val EDIT_TASK = "edit_task/{taskId}"
 }
 
 class MainActivity : ComponentActivity() {
