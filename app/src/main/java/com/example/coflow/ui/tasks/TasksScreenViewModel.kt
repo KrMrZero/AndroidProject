@@ -22,6 +22,14 @@ import java.time.format.DateTimeFormatter
 
 enum class TaskGrouping { STATUS, DEADLINE }
 
+enum class FilterType { NONE, MINE, PROJECT }
+
+data class TaskFilterItem(
+    val id: String,
+    val title: String,
+    val type: FilterType,
+)
+
 data class TaskRowUi(
     val id: String,
     val title: String,
@@ -50,7 +58,7 @@ data class TasksUiState(
     val currentGrouping: TaskGrouping,
     val selectedFilters: Set<String>,
     val filterButtonText: String,
-    val availableFilters: List<String>,
+    val availableFilters: List<TaskFilterItem>,
     val isBottomBarVisible: Boolean,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -71,9 +79,12 @@ class TasksScreenViewModel(
                 currentGrouping = TaskGrouping.STATUS,
                 selectedFilters = emptySet(),
                 filterButtonText = "Без фильтра",
-                availableFilters = listOf("Без фильтра", "Мои задачи"), // Базовые фильтры есть всегда
+                availableFilters = listOf(
+                    TaskFilterItem("NONE", "", FilterType.NONE),
+                    TaskFilterItem("MINE", "", FilterType.MINE),
+                ), // Начальные фильтры
                 isBottomBarVisible = true,
-                isLoading = true, // Сразу показываем крутилку
+                isLoading = true,
             ),
         )
     val uiState: StateFlow<TasksUiState> = _uiState.asStateFlow()
@@ -91,110 +102,139 @@ class TasksScreenViewModel(
 
         observeJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                val uid = authRepository.getCurrentUserUid()
+                if (uid == null) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Пользователь не авторизован",
+                        )
+                    }
+                    return@launch
+                }
+                currentUid = uid
 
-            // 1. Убираем !!, используем локальную val
-            val uid = authRepository.getCurrentUserUid()
-            if (uid == null) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Пользователь не авторизован") }
-                return@launch
-            }
-            currentUid = uid
+                // Загружаем проекты: где я участник И где я владелец
+                val userProjectsResult = projectRepository.getByUserId(uid)
+                val ownerProjectsResult = projectRepository.getByOwnerId(uid)
 
-            // 2. ВОЗВРАЩАЕМ getByOwnerId и загружаем оба списка
-            val userProjectsResult = projectRepository.getByUserId(uid)
-            val ownerProjectsResult = projectRepository.getByOwnerId(uid)
+                if (userProjectsResult.isFailure && ownerProjectsResult.isFailure) {
+                    val error = userProjectsResult.exceptionOrNull()
+                        ?: ownerProjectsResult.exceptionOrNull()
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error?.message ?: "Ошибка загрузки проектов",
+                        )
+                    }
+                    return@launch
+                }
 
-            // 3. Объединяем обработку ошибок
-            if (userProjectsResult.isFailure && ownerProjectsResult.isFailure) {
-                val error = userProjectsResult.exceptionOrNull() ?: ownerProjectsResult.exceptionOrNull()
+                val projects = (
+                        userProjectsResult.getOrDefault(emptyList()) +
+                                ownerProjectsResult.getOrDefault(emptyList())
+                        ).distinctBy { it.id }.filterNot { it.isDeleted }
+
+                val projectMap = projects.associateBy { it.id }
+
+                // Real-time подписка на задачи каждого проекта
+                val taskFlows = projects.map { project ->
+                    taskRepository.observeTasksByProjectId(project.id)
+                }
+
+                if (taskFlows.isEmpty()) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            allTaskRows = emptyList(),
+                            availableFilters = listOf(
+                                TaskFilterItem("NONE", "", FilterType.NONE),
+                                TaskFilterItem("MINE", "", FilterType.MINE),
+                            ),
+                        )
+                    }
+                    applyFiltersAndGrouping()
+                    return@launch
+                }
+
+                combine(taskFlows) { resultsArray ->
+                    resultsArray.flatMap { it.getOrNull() ?: emptyList() }
+                }.collect { allFetchedTasks ->
+                    val taskRows = allFetchedTasks.map { task ->
+                        TaskRowUi(
+                            id = task.id,
+                            projectId = task.projectId,
+                            title = task.title,
+                            projectName = projectMap[task.projectId]?.title ?: "Без проекта",
+                            authorId = task.authorId,
+                            assigneeId = task.assigneeId,
+                            dueDateFormatted = task.deadline.format(
+                                DateTimeFormatter.ofPattern("dd.MM.yy"),
+                            ),
+                            status = task.status,
+                            isDone = task.status == TaskStatus.DONE,
+                            isOverdue = task.deadline.isBefore(
+                                LocalDateTime.now(ZoneOffset.UTC),
+                            ) && task.status != TaskStatus.DONE,
+                        )
+                    }
+
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoading = false,
+                            allTaskRows = taskRows,
+                            availableFilters = listOf(
+                                TaskFilterItem("NONE", "", FilterType.NONE),
+                                TaskFilterItem("MINE", "", FilterType.MINE),
+                            ) + projects.map {
+                                TaskFilterItem(it.id, it.title, FilterType.PROJECT)
+                            },
+                        )
+                    }
+                    applyFiltersAndGrouping()
+                }
+            } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = error?.message ?: "Ошибка загрузки проектов",
+                        errorMessage = "Системная ошибка: ${e.message}",
                     )
                 }
-                return@launch
-            }
-
-            val projects =
-                (userProjectsResult.getOrDefault(emptyList()) + ownerProjectsResult.getOrDefault(emptyList()))
-                    .distinctBy { it.id }
-                    .filterNot { it.isDeleted }
-
-            val projectMap = projects.associateBy { it.id }
-
-            // Создаем список Flow для каждого проекта
-            val taskFlows = projects.map { project ->
-                taskRepository.observeTasksByProjectId(project.id)
-            }
-
-            // 4. Обновляем availableFilters при пустом списке проектов
-            if (taskFlows.isEmpty()) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        allTaskRows = emptyList(),
-                        availableFilters = listOf("Без фильтра", "Мои задачи"),
-                    )
-                }
-                applyFiltersAndGrouping()
-                return@launch
-            }
-
-            // Используем combine, чтобы собирать данные со всех проектов одновременно
-            combine(taskFlows) { resultsArray ->
-                resultsArray.flatMap { it.getOrNull() ?: emptyList() }
-            }.collect { allFetchedTasks ->
-                val taskRows = allFetchedTasks.map { task ->
-                    TaskRowUi(
-                        id = task.id,
-                        projectId = task.projectId,
-                        title = task.title,
-                        projectName = projectMap[task.projectId]?.title ?: "Без проекта",
-                        authorId = task.authorId,
-                        assigneeId = task.assigneeId,
-                        dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
-                        status = task.status,
-                        isDone = task.status == TaskStatus.DONE,
-                        isOverdue = task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
-                    )
-                }
-
-                _uiState.update { state ->
-                    state.copy(
-                        isLoading = false,
-                        allTaskRows = taskRows,
-                        availableFilters = listOf("Без фильтра", "Мои задачи") +
-                                projects.map { "Проект: ${it.title}" },
-                    )
-                }
-                applyFiltersAndGrouping()
             }
         }
     }
-
-    // --- Обработчики событий от UI ---
 
     fun onGroupingChange(grouping: TaskGrouping) {
         _uiState.update { it.copy(currentGrouping = grouping) }
         applyFiltersAndGrouping()
     }
 
-    fun onFilterToggle(filter: String) {
+    fun onFilterToggle(filter: TaskFilterItem) {
         _uiState.update { state ->
             val newFilters = state.selectedFilters.toMutableSet()
 
-            if (filter == "Без фильтра") {
+            if (filter.type == FilterType.NONE) {
                 newFilters.clear()
             } else {
-                if (newFilters.contains(filter)) {
-                    newFilters.remove(filter)
+                if (newFilters.contains(filter.id)) {
+                    newFilters.remove(filter.id)
                 } else {
-                    newFilters.add(filter)
+                    newFilters.add(filter.id)
                 }
             }
 
-            val buttonText = if (newFilters.isEmpty()) "Без фильтра" else newFilters.joinToString(", ")
+            // Формируем текст для кнопки фильтра
+            val buttonText = if (newFilters.isEmpty()) {
+                "Без фильтра"
+            } else {
+                val selectedNames = state.availableFilters
+                    .filter { it.id in newFilters }
+                    .joinToString(", ") {
+                        if (it.type == FilterType.MINE) "Мои задачи" else it.title
+                    }
+                selectedNames.ifBlank { "Выбрано: ${newFilters.size}" }
+            }
 
             state.copy(
                 selectedFilters = newFilters,
@@ -223,25 +263,18 @@ class TasksScreenViewModel(
             var filtered = state.allTaskRows
             val uid = currentUid
 
-            // «Мои задачи»
-            if (state.selectedFilters.contains("Мои задачи") && uid != null) {
+            if (state.selectedFilters.contains("MINE") && uid != null) {
                 filtered = filtered.filter { it.authorId == uid || it.assigneeId == uid }
             }
 
-            // Проекты
-            val selectedProjectNames =
-                state.selectedFilters
-                    .filter { it.startsWith("Проект: ") }
-                    .map { it.removePrefix("Проект: ") }
+            val selectedProjectIds = state.selectedFilters.filter {
+                it != "MINE" && it != "NONE"
+            }.toSet()
 
-            if (selectedProjectNames.isNotEmpty()) {
-                val selectedProjectIds =
-                    state.allTaskRows
-                        .filter { it.projectName in selectedProjectNames }
-                        .map { it.projectId }
-                        .toSet()
+            if (selectedProjectIds.isNotEmpty()) {
                 filtered = filtered.filter { it.projectId in selectedProjectIds }
             }
+
             val newGroups =
                 when (state.currentGrouping) {
                     TaskGrouping.STATUS -> groupTasksByStatus(filtered)
@@ -256,13 +289,9 @@ class TasksScreenViewModel(
         }
     }
 
-    // 5. Мёртвый onNotificationClick УДАЛЕН
-
     fun refresh() {
         loadTasks()
     }
-
-    // --- Вспомогательные функции для группировки ---
 
     private fun groupTasksByStatus(tasks: List<TaskRowUi>): List<TaskGroupUi> {
         val todo = tasks.filter { it.status == TaskStatus.TODO }

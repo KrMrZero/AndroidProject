@@ -74,7 +74,7 @@ fun TasksScreen(
     onNavigateToCreateTask: () -> Unit,
     onNavigateToTaskDetail: (String) -> Unit,
     onGroupingChange: (TaskGrouping) -> Unit,
-    onFilterToggle: (String) -> Unit,
+    onFilterToggle: (TaskFilterItem) -> Unit,
     onToggleGroup: (String) -> Unit,
     onNavigateToProjects: () -> Unit,
     onNavigateToProfile: () -> Unit,
@@ -339,8 +339,8 @@ private fun SortFilterPanel(
     onGroupingChange: (TaskGrouping) -> Unit,
     selectedFilters: Set<String>,
     filterButtonText: String,
-    onFilterToggle: (String) -> Unit,
-    availableFilters: List<String>,
+    onFilterToggle: (TaskFilterItem) -> Unit,
+    availableFilters: List<TaskFilterItem>,
 ) {
     Row(
         modifier = modifier,
@@ -469,8 +469,8 @@ private fun SortFilterPanel(
             ) {
                 availableFilters.forEach { option ->
                     GlassFilterOption(
-                        title = option,
-                        selected = selectedFilters.contains(option),
+                        title = if (option.type == FilterType.NONE) "Без фильтра" else if (option.type == FilterType.MINE) "Мои задачи" else "Проект: ${option.title}",
+                        selected = selectedFilters.contains(option.id),
                     ) { onFilterToggle(option) }
                 }
             }
@@ -717,15 +717,14 @@ fun TasksScreen_Default_Preview() {
                         ),
                     currentGrouping = TaskGrouping.STATUS,
                     filterButtonText = "Без фильтра",
-                    availableFilters =
-                        listOf(
-                            "Без фильтра",
-                            "Мои задачи",
-                            "Проект: Дизайн-система",
-                            "Проект: Мобильное приложение",
-                        ),
+                    availableFilters = listOf(
+                        TaskFilterItem("NONE", "", FilterType.NONE),
+                        TaskFilterItem("MINE", "", FilterType.MINE),
+                        TaskFilterItem("project_1", "Дизайн-система", FilterType.PROJECT),
+                        TaskFilterItem("project_2", "Мобильное приложение", FilterType.PROJECT),
+                    ),
                     isBottomBarVisible = true,
-                    selectedFilters = setOf("Мои задачи"),
+                    selectedFilters = setOf("MINE"),
                 ),
             onNavigateToCreateTask = {},
             onNavigateToTaskDetail = {},
