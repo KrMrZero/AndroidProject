@@ -2,7 +2,6 @@ package com.example.coflow.ui.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
@@ -10,19 +9,16 @@ import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
 import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
 import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.TaskRepository
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.combine
 
 enum class TaskGrouping { STATUS, DEADLINE }
 
@@ -75,7 +71,7 @@ class TasksScreenViewModel(
                 currentGrouping = TaskGrouping.STATUS,
                 selectedFilters = emptySet(),
                 filterButtonText = "Без фильтра",
-                availableFilters = emptyList(),
+                availableFilters = listOf("Без фильтра", "Мои задачи"), // Базовые фильтры есть всегда
                 isBottomBarVisible = true,
                 isLoading = true, // Сразу показываем крутилку
             ),
@@ -83,12 +79,11 @@ class TasksScreenViewModel(
     val uiState: StateFlow<TasksUiState> = _uiState.asStateFlow()
 
     private var currentUid: String? = null
+    private var observeJob: Job? = null
 
     init {
-        loadTasks() // Запускаем загрузку при старте экрана
+        loadTasks()
     }
-
-    private var observeJob: Job? = null
 
     private fun loadTasks() {
         // Отменяем предыдущую подписку, если она была
@@ -96,68 +91,85 @@ class TasksScreenViewModel(
 
         observeJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            currentUid = authRepository.getCurrentUserUid()
 
-            if (currentUid == null) {
+            // 1. Убираем !!, используем локальную val
+            val uid = authRepository.getCurrentUserUid()
+            if (uid == null) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Пользователь не авторизован") }
                 return@launch
             }
+            currentUid = uid
 
-            // Загружаем проекты пользователя
-            projectRepository.getByUserId(currentUid!!).fold(
-                onSuccess = { projects ->
-                    val projectMap = projects.associateBy { it.id }
+            // 2. ВОЗВРАЩАЕМ getByOwnerId и загружаем оба списка
+            val userProjectsResult = projectRepository.getByUserId(uid)
+            val ownerProjectsResult = projectRepository.getByOwnerId(uid)
 
-                    // Создаем список Flow для каждого проекта
-                    val taskFlows = projects.map { project ->
-                        taskRepository.observeTasksByProjectId(project.id)
-                    }
+            // 3. Объединяем обработку ошибок
+            if (userProjectsResult.isFailure && ownerProjectsResult.isFailure) {
+                val error = userProjectsResult.exceptionOrNull() ?: ownerProjectsResult.exceptionOrNull()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = error?.message ?: "Ошибка загрузки проектов",
+                    )
+                }
+                return@launch
+            }
 
-                    // Объединяем все потоки в один и слушаем изменения в реальном времени
-                    if (taskFlows.isEmpty()) {
-                        _uiState.update { it.copy(isLoading = false, allTaskRows = emptyList()) }
-                        applyFiltersAndGrouping()
-                        return@fold
-                    }
+            val projects =
+                (userProjectsResult.getOrDefault(emptyList()) + ownerProjectsResult.getOrDefault(emptyList()))
+                    .distinctBy { it.id }
+                    .filterNot { it.isDeleted }
 
-                    // Используем combine, чтобы собирать данные со всех проектов одновременно
-                    combine(taskFlows) { resultsArray ->
-                        // resultsArray - это массив Result<List<TaskModel>> для каждого проекта
-                        val allFetchedTasks = resultsArray.flatMap { result ->
-                            result.getOrNull() ?: emptyList()
-                        }
+            val projectMap = projects.associateBy { it.id }
 
-                        // Превращаем TaskModel в TaskRowUi
-                        allFetchedTasks.map { task ->
-                            TaskRowUi(
-                                id = task.id,
-                                projectId = task.projectId,
-                                title = task.title,
-                                projectName = projectMap[task.projectId]?.title ?: "Без проекта",
-                                authorId = task.authorId,
-                                assigneeId = task.assigneeId,
-                                dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
-                                status = task.status,
-                                isDone = task.status == TaskStatus.DONE,
-                                isOverdue = task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
-                            )
-                        }
-                    }.collect { taskRows ->
-                        // Каждый раз, когда база присылает новые данные, обновляем UI
-                        _uiState.update { state ->
-                            state.copy(
-                                isLoading = false,
-                                allTaskRows = taskRows,
-                                availableFilters = listOf("Без фильтра", "Мои задачи") + projects.map { "Проект: ${it.title}" },
-                            )
-                        }
-                        applyFiltersAndGrouping()
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Ошибка загрузки проектов") }
-                },
-            )
+            // Создаем список Flow для каждого проекта
+            val taskFlows = projects.map { project ->
+                taskRepository.observeTasksByProjectId(project.id)
+            }
+
+            // 4. Обновляем availableFilters при пустом списке проектов
+            if (taskFlows.isEmpty()) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        allTaskRows = emptyList(),
+                        availableFilters = listOf("Без фильтра", "Мои задачи"),
+                    )
+                }
+                applyFiltersAndGrouping()
+                return@launch
+            }
+
+            // Используем combine, чтобы собирать данные со всех проектов одновременно
+            combine(taskFlows) { resultsArray ->
+                resultsArray.flatMap { it.getOrNull() ?: emptyList() }
+            }.collect { allFetchedTasks ->
+                val taskRows = allFetchedTasks.map { task ->
+                    TaskRowUi(
+                        id = task.id,
+                        projectId = task.projectId,
+                        title = task.title,
+                        projectName = projectMap[task.projectId]?.title ?: "Без проекта",
+                        authorId = task.authorId,
+                        assigneeId = task.assigneeId,
+                        dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
+                        status = task.status,
+                        isDone = task.status == TaskStatus.DONE,
+                        isOverdue = task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
+                    )
+                }
+
+                _uiState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        allTaskRows = taskRows,
+                        availableFilters = listOf("Без фильтра", "Мои задачи") +
+                                projects.map { "Проект: ${it.title}" },
+                    )
+                }
+                applyFiltersAndGrouping()
+            }
         }
     }
 
@@ -244,9 +256,7 @@ class TasksScreenViewModel(
         }
     }
 
-    fun onNotificationClick() {
-        // Заглушка: здесь можно отправить событие или ничего не делать
-    }
+    // 5. Мёртвый onNotificationClick УДАЛЕН
 
     fun refresh() {
         loadTasks()
