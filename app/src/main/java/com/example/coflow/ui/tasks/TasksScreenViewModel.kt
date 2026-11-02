@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 
 enum class TaskGrouping { STATUS, DEADLINE }
 
@@ -86,8 +88,13 @@ class TasksScreenViewModel(
         loadTasks() // Запускаем загрузку при старте экрана
     }
 
+    private var observeJob: Job? = null
+
     private fun loadTasks() {
-        viewModelScope.launch {
+        // Отменяем предыдущую подписку, если она была
+        observeJob?.cancel()
+
+        observeJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             currentUid = authRepository.getCurrentUserUid()
 
@@ -99,21 +106,28 @@ class TasksScreenViewModel(
             // Загружаем проекты пользователя
             projectRepository.getByUserId(currentUid!!).fold(
                 onSuccess = { projects ->
-                    val allFetchedTasks =
-                        kotlinx.coroutines.coroutineScope {
-                            projects
-                                .map { project ->
-                                    async {
-                                        taskRepository.getByProjectId(project.id).getOrNull() ?: emptyList()
-                                    }
-                                }.awaitAll()
-                                .flatten()
-                        }
-                    // Создаем мапу ID -> Название, чтобы быстро подставлять имя проекта в UI
                     val projectMap = projects.associateBy { it.id }
 
-                    // Превращаем TaskModel в TaskRowUi
-                    val taskRows =
+                    // Создаем список Flow для каждого проекта
+                    val taskFlows = projects.map { project ->
+                        taskRepository.observeTasksByProjectId(project.id)
+                    }
+
+                    // Объединяем все потоки в один и слушаем изменения в реальном времени
+                    if (taskFlows.isEmpty()) {
+                        _uiState.update { it.copy(isLoading = false, allTaskRows = emptyList()) }
+                        applyFiltersAndGrouping()
+                        return@fold
+                    }
+
+                    // Используем combine, чтобы собирать данные со всех проектов одновременно
+                    combine(taskFlows) { resultsArray ->
+                        // resultsArray - это массив Result<List<TaskModel>> для каждого проекта
+                        val allFetchedTasks = resultsArray.flatMap { result ->
+                            result.getOrNull() ?: emptyList()
+                        }
+
+                        // Превращаем TaskModel в TaskRowUi
                         allFetchedTasks.map { task ->
                             TaskRowUi(
                                 id = task.id,
@@ -125,24 +139,20 @@ class TasksScreenViewModel(
                                 dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
                                 status = task.status,
                                 isDone = task.status == TaskStatus.DONE,
-                                // Firestore хранит даты в UTC, поэтому и текущее время берём в UTC.
-                                // Иначе на устройствах с другим часовым поясом задача может
-                                // считаться просроченной раньше или позже реального дедлайна.
                                 isOverdue = task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
                             )
                         }
-
-                    // Обновляем стейт: убираем загрузку, кидаем задачи и формируем фильтры
-                    _uiState.update { state ->
-                        state.copy(
-                            isLoading = false,
-                            allTaskRows = taskRows,
-                            availableFilters = listOf("Без фильтра", "Мои задачи") + projects.map { "Проект: ${it.title}" },
-                        )
+                    }.collect { taskRows ->
+                        // Каждый раз, когда база присылает новые данные, обновляем UI
+                        _uiState.update { state ->
+                            state.copy(
+                                isLoading = false,
+                                allTaskRows = taskRows,
+                                availableFilters = listOf("Без фильтра", "Мои задачи") + projects.map { "Проект: ${it.title}" },
+                            )
+                        }
+                        applyFiltersAndGrouping()
                     }
-
-                    // Сразу применяем фильтры и группировку
-                    applyFiltersAndGrouping()
                 },
                 onFailure = { error ->
                     _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Ошибка загрузки проектов") }

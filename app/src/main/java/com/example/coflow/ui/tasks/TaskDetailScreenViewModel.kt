@@ -2,13 +2,27 @@ package com.example.coflow.ui.tasks
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.AuthRepository
+import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
+import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
+import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
+import com.example.coflow.repositories.FirebaseUserRepositoryImpl
+import com.example.coflow.repositories.ProjectRepository
+import com.example.coflow.repositories.TaskRepository
+import com.example.coflow.repositories.UserRepository
+import com.example.coflow.repositories.dto.TaskUpdateDto
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 enum class TaskStatusUi {
     TODO,
@@ -17,147 +31,162 @@ enum class TaskStatusUi {
 }
 
 data class TaskDetailUiState(
-    val id: Int,
-    val title: String,
-    val status: TaskStatusUi,
-    val projectName: String,
-    val description: String,
-    val author: String,
-    val assignees: List<String>,
-    val dueDateFormatted: String,
-    val isOverdue: Boolean,
-    val canEdit: Boolean,
-    val showBottomAction: Boolean,
-    val bottomActionText: String,
+    val id: String = "",
+    val title: String = "",
+    val status: TaskStatusUi = TaskStatusUi.TODO,
+    val projectName: String = "",
+    val description: String = "",
+    val author: String = "",
+    val assignees: List<String> = emptyList(),
+    val dueDateFormatted: String = "",
+    val isOverdue: Boolean = false,
+    val canEdit: Boolean = false,
+    val showBottomAction: Boolean = false,
+    val bottomActionText: String = "",
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null,
 )
 
 class TaskDetailScreenViewModel(
-    private val savedStateHandle: SavedStateHandle,
+    savedStateHandle: SavedStateHandle,
+    private val taskRepository: TaskRepository = FirebaseTaskRepositoryImpl(),
+    private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
+    private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
+    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
 ) : ViewModel() {
-    // События для UI (например, навигация или показ Toast)
+
     private val _uiEvent = Channel<UiEvent>()
     val uiEvent = _uiEvent.receiveAsFlow()
 
-    private val _uiState = MutableStateFlow<TaskDetailUiState?>(null)
-    val uiState: StateFlow<TaskDetailUiState?> = _uiState.asStateFlow()
+    private val _state = MutableStateFlow(TaskDetailUiState())
+    val state: StateFlow<TaskDetailUiState> = _state.asStateFlow()
 
-    private val taskId: Int
+    private val taskId: String = savedStateHandle.get<String>("taskId").orEmpty()
 
     init {
-        // Читаем taskId из маршрута "task_detail/{taskId}"
-        taskId = savedStateHandle.get<String>("taskId")?.toIntOrNull() ?: 1
-        loadTask(taskId)
+        if (taskId.isNotBlank()) {
+            loadTask()
+        } else {
+            _state.update { it.copy(isLoading = false, errorMessage = "ID задачи не передан") }
+        }
     }
 
-    private fun loadTask(taskId: Int) {
-        _uiState.value = getMockTask(taskId)
-    }
+    private fun loadTask() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            val currentUid = authRepository.getCurrentUserUid().orEmpty()
 
-    // --- Обработчики действий ---
-    fun onBottomActionClick() {
-        val current = _uiState.value ?: return
-
-        // Имитация изменения статуса при нажатии на кнопку
-        val newState =
-            when (current.status) {
-                TaskStatusUi.TODO -> {
-                    current.copy(
-                        status = TaskStatusUi.IN_PROGRESS,
-                        canEdit = true,
-                        bottomActionText = "Выполнить",
-                    )
-                }
-
-                TaskStatusUi.IN_PROGRESS -> {
-                    current.copy(
-                        status = TaskStatusUi.DONE,
-                        canEdit = false,
-                        showBottomAction = false,
-                        bottomActionText = "",
-                    )
-                }
-
-                TaskStatusUi.DONE -> {
-                    current
-                } // Ничего не делаем
+            val taskResult = taskRepository.getById(taskId)
+            val task = taskResult.getOrElse { error ->
+                _state.update { it.copy(isLoading = false, errorMessage = error.message) }
+                return@launch
             }
-        _uiState.value = newState
+
+            val projectName = if (task.projectId.isNotBlank()) {
+                projectRepository.getById(task.projectId).getOrNull()?.title.orEmpty()
+            } else ""
+
+            val authorName = if (task.authorId.isNotBlank()) {
+                userRepository.getById(task.authorId).getOrNull()?.name.orEmpty()
+            } else ""
+
+            val assigneesList = mutableListOf<String>()
+            if (task.assigneeId.isNotBlank()) {
+                val assigneeUser = userRepository.getById(task.assigneeId).getOrNull()
+                if (assigneeUser != null) {
+                    assigneesList.add(if (assigneeUser.uid == currentUid) "Ты" else assigneeUser.name)
+                }
+            }
+
+            val isOverdue = task.deadline.toLocalDate().isBefore(LocalDate.now()) && task.status != TaskStatus.DONE
+            val formattedDate = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy"))
+
+            val isAuthor = task.authorId == currentUid
+            val isAssignee = task.assigneeId == currentUid
+
+            val (showAction, actionText, canEdit) = when (task.status) {
+                TaskStatus.TODO -> Triple(true, "Взять задачу", isAuthor)
+                TaskStatus.IN_PROGRESS -> Triple(true, "Выполнить", isAuthor || isAssignee)
+                TaskStatus.DONE -> Triple(false, "", false)
+            }
+
+            _state.update {
+                it.copy(
+                    id = task.id,
+                    title = task.title,
+                    status = TaskStatusUi.valueOf(task.status.name),
+                    projectName = projectName,
+                    description = task.description,
+                    author = authorName,
+                    assignees = assigneesList,
+                    dueDateFormatted = formattedDate,
+                    isOverdue = isOverdue,
+                    canEdit = canEdit,
+                    showBottomAction = showAction,
+                    bottomActionText = actionText,
+                    isLoading = false
+                )
+            }
+        }
+    }
+
+    fun onBottomActionClick() {
+        val current = _state.value
+        if (current.isLoading || !current.showBottomAction) return
+
+        val currentUid = authRepository.getCurrentUserUid().orEmpty()
+        val newStatus = when (current.status) {
+            TaskStatusUi.TODO -> TaskStatus.IN_PROGRESS
+            TaskStatusUi.IN_PROGRESS -> TaskStatus.DONE
+            TaskStatusUi.DONE -> return
+        }
+
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+
+            val updateDto = TaskUpdateDto(
+                status = newStatus,
+                assigneeId = if (newStatus == TaskStatus.IN_PROGRESS) currentUid else null
+            )
+
+            val result = taskRepository.updateTask(taskId, updateDto)
+
+            result.fold(
+                onSuccess = { loadTask() },
+                onFailure = { error ->
+                    _state.update { it.copy(isLoading = false, errorMessage = error.message) }
+                }
+            )
+        }
     }
 
     fun onEditClick() {
-        viewModelScope.launch {
-            _uiEvent.send(UiEvent.NavigateToEdit(taskId))
-        }
+        viewModelScope.launch { _uiEvent.send(UiEvent.NavigateToEdit(taskId)) }
     }
 
     fun onBackClick() {
-        viewModelScope.launch {
-            _uiEvent.send(UiEvent.NavigateBack)
-        }
+        viewModelScope.launch { _uiEvent.send(UiEvent.NavigateBack) }
     }
 
-    // --- Заглушки данных ---
+    fun clearError() {
+        _state.update { it.copy(errorMessage = null) }
+    }
 
-    private fun getMockTask(taskId: Int): TaskDetailUiState =
-        when (taskId) {
-            1 -> {
-                TaskDetailUiState(
-                    id = 1,
-                    title = "Обновить иконки в навигации",
-                    status = TaskStatusUi.TODO,
-                    projectName = "Дизайн-система",
-                    description = "",
-                    author = "Елена Козлова",
-                    assignees = emptyList(),
-                    dueDateFormatted = "30.10.26",
-                    isOverdue = false,
-                    canEdit = true,
-                    showBottomAction = true,
-                    bottomActionText = "Взять задачу",
-                )
-            }
-
-            3 -> {
-                TaskDetailUiState(
-                    id = 3,
-                    title = "Разработать новый онбординг для пользователей",
-                    status = TaskStatusUi.IN_PROGRESS,
-                    projectName = "Мобильное приложение",
-                    description = "Нужно сделать 3 экрана с анимацией и кнопкой пропуска.",
-                    author = "Алексей Смирнов",
-                    assignees = listOf("Мария Иванова", "Ты"),
-                    dueDateFormatted = "24.10.26",
-                    isOverdue = true,
-                    canEdit = false,
-                    showBottomAction = true,
-                    bottomActionText = "Выполнить",
-                )
-            }
-
-            else -> {
-                TaskDetailUiState(
-                    id = 2,
-                    title = "Провести ревью кода модуля авторизации",
-                    status = TaskStatusUi.DONE,
-                    projectName = "Бэкенд",
-                    description = "Все замечания исправлены, код утвержден.",
-                    author = "Дмитрий Петров",
-                    assignees = listOf("Ты"),
-                    dueDateFormatted = "20.10.26",
-                    isOverdue = false,
-                    canEdit = false,
-                    showBottomAction = false,
-                    bottomActionText = "",
-                )
-            }
-        }
-
-    // События, которые ViewModel отправляет в Route
     sealed class UiEvent {
         object NavigateBack : UiEvent()
+        data class NavigateToEdit(val taskId: String) : UiEvent()
+    }
+}
 
-        data class NavigateToEdit(
-            val taskId: Int,
-        ) : UiEvent()
+// Фабрика для правильного создания ViewModel с SavedStateHandle
+class TaskDetailScreenViewModelFactory(
+    private val savedStateHandle: SavedStateHandle,
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(TaskDetailScreenViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return TaskDetailScreenViewModel(savedStateHandle) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
