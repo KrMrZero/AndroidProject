@@ -68,6 +68,7 @@
         <string name="auth_error_short_password">Minimum 8 characters</string>
         <string name="auth_error_not_equal_password">The passwords do not match.</string>
         <string name="task_outdated">Expired</string>
+        <string name="error_project_id_missing">Project ID not provided</string>
 
         <!-- Группы -->
     <string name="error_not_authorized">User not logged in</string>

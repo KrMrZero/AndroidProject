@@ -78,6 +78,7 @@
     <string name="error_already_project_member_self">Вы уже являетесь участником данного проекта</string>
     <string name="error_already_project_member">Этот пользователь уже состоит в данном проекте</string>
     <string name="error_prefix">Ошибка: %s</string>
+    <string name="error_project_id_missing">ID проекта не передан</string>
 
     <!-- Группы -->
     <string name="tasks_group_planned">К исполнению</string>
