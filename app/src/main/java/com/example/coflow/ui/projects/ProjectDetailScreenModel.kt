@@ -34,7 +34,7 @@ data class ProjectParticipantUi(
 
 enum class ProjectStatusUi {
     IN_PROGRESS, // В работе
-    ARCHIVED     // Архив
+    ARCHIVED, // Архив
 }
 
 data class ProjectDetailUiState(
@@ -43,24 +43,24 @@ data class ProjectDetailUiState(
     val description: String = "",
     val status: ProjectStatusUi = ProjectStatusUi.IN_PROGRESS,
     val ownerName: String = "",
-
     val participants: List<ProjectParticipantUi> = emptyList(),
     val searchQuery: String = "",
-
     val canEdit: Boolean = false,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null,      // Для динамических ошибок
-    val errorMessageResId: Int? = null,    // Для ошибок из R.string (ДОБАВЛЕНО)
+    val isEditRequested: Boolean = false,
+    val errorMessage: String? = null, // Для динамических ошибок
+    val errorMessageResId: Int? = null, // Для ошибок из R.string (ДОБАВЛЕНО)
 ) {
     val filteredParticipants: List<ProjectParticipantUi>
-        get() = if (searchQuery.isBlank()) {
-            participants
-        } else {
-            participants.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
+        get() =
+            if (searchQuery.isBlank()) {
+                participants
+            } else {
+                participants.filter {
+                    it.name.contains(searchQuery, ignoreCase = true) ||
                         it.email.contains(searchQuery, ignoreCase = true)
+                }
             }
-        }
 }
 
 class ProjectDetailScreenViewModel(
@@ -70,9 +70,7 @@ class ProjectDetailScreenViewModel(
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
 ) : ViewModel() {
-
-    private val _uiEvent = Channel<UiEvent>()
-    val uiEvent = _uiEvent.receiveAsFlow()
+    object NavigateBack : UiEvent()
 
     private val _state = MutableStateFlow(ProjectDetailUiState())
     val state: StateFlow<ProjectDetailUiState> = _state.asStateFlow()
@@ -83,11 +81,10 @@ class ProjectDetailScreenViewModel(
         if (projectId.isNotBlank()) {
             loadProject()
         } else {
-            // ИСПРАВЛЕНИЕ 1: Убран хардкод, используем ресурс
             _state.update {
                 it.copy(
                     isLoading = false,
-                    errorMessageResId = R.string.error_task_id_missing // или создать error_project_id_missing
+                    errorMessageResId = R.string.error_project_id_missing,
                 )
             }
         }
@@ -95,84 +92,77 @@ class ProjectDetailScreenViewModel(
 
     private fun loadProject() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null, errorMessageResId = null) }
-            val currentUid = authRepository.getCurrentUserUid().orEmpty()
-
-            // ИСПРАВЛЕНИЕ 3: Оборачиваем в try/catch с обработкой CancellationException
+            _state.update {
+                it.copy(isLoading = true, errorMessage = null, errorMessageResId = null)
+            }
             try {
-                // 1. Загружаем сам проект
-                val projectResult = projectRepository.getById(projectId)
-                val project = projectResult.getOrElse { error ->
-                    _state.update { it.copy(isLoading = false, errorMessage = error.message) }
-                    return@launch
-                }
+                val currentUid = authRepository.getCurrentUserUid().orEmpty()
 
-                // ИСПРАВЛЕНИЕ 2: Запрашиваем владельца ОДИН раз и с проверкой на blank
-                val ownerUser = if (project.ownerId.isNotBlank()) {
-                    userRepository.getById(project.ownerId).getOrNull()
-                } else null
+                val project =
+                    projectRepository.getById(projectId).getOrElse { error ->
+                        _state.update {
+                            it.copy(
+                                errorMessage = error.message,
+                                errorMessageResId = if (error.message == null) R.string.error_system else null,
+                            )
+                        }
+                        return@launch
+                    }
 
+                val ownerUser =
+                    project.ownerId
+                        .takeIf { it.isNotBlank() }
+                        ?.let { userRepository.getById(it).getOrNull() }
                 val ownerName = ownerUser?.name.orEmpty()
 
-                // 3. Загружаем участников (memberships)
                 val memberships = membershipRepository.getByProjectId(projectId).getOrDefault(emptyList())
 
                 val participantsList = mutableListOf<ProjectParticipantUi>()
-
-                // Добавляем владельца в список (используем ownerUser из шага 2)
-                if (ownerUser != null) {
-                    participantsList.add(
+                ownerUser?.let {
+                    participantsList +=
                         ProjectParticipantUi(
-                            uid = ownerUser.uid,
-                            name = ownerUser.name,
-                            email = ownerUser.email,
-                            initials = getInitials(ownerUser.name),
-                            role = Role.OWNER
+                            uid = it.uid,
+                            name = it.name,
+                            email = it.email,
+                            initials = getInitials(it.name),
+                            role = Role.OWNER,
                         )
-                    )
                 }
-
-                // Добавляем остальных участников
-                for (membership in memberships) {
-                    if (membership.userId == project.ownerId) continue
-
-                    val user = userRepository.getById(membership.userId).getOrNull()
-                    if (user != null) {
-                        participantsList.add(
-                            ProjectParticipantUi(
-                                uid = user.uid,
-                                name = user.name,
-                                email = user.email,
-                                initials = getInitials(user.name),
-                                role = membership.role
-                            )
-                        )
+                memberships
+                    .filter { it.userId != project.ownerId }
+                    .forEach { membership ->
+                        userRepository.getById(membership.userId).getOrNull()?.let { user ->
+                            participantsList +=
+                                ProjectParticipantUi(
+                                    uid = user.uid,
+                                    name = user.name,
+                                    email = user.email,
+                                    initials = getInitials(user.name),
+                                    role = membership.role,
+                                )
+                        }
                     }
-                }
 
-                val projectStatus = if (project.isDeleted) ProjectStatusUi.ARCHIVED else ProjectStatusUi.IN_PROGRESS
-
-                // 4. Обновляем стейт
                 _state.update {
                     it.copy(
                         projectId = project.id,
                         title = project.title,
                         description = project.description,
-                        status = projectStatus,
+                        status = if (project.isDeleted) ProjectStatusUi.ARCHIVED else ProjectStatusUi.IN_PROGRESS,
                         ownerName = ownerName,
                         participants = participantsList,
-                        canEdit = (project.ownerId == currentUid),
-                        isLoading = false
+                        canEdit = project.ownerId == currentUid,
+                        isLoading = false,
                     )
                 }
             } catch (e: CancellationException) {
-                throw e // <-- Пробрасываем отмену дальше, чтобы не показать ложную ошибку
+                throw e
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
                         isLoading = false,
                         errorMessage = e.message,
-                        errorMessageResId = R.string.error_system
+                        errorMessageResId = if (e.message == null) R.string.error_system else null,
                     )
                 }
             }
@@ -184,11 +174,15 @@ class ProjectDetailScreenViewModel(
     }
 
     fun onEditClick() {
-        // Заглушка
+        if (!_state.value.canEdit) {
+            _state.update { it.copy(errorMessageResId = R.string.error_no_edit_permission) }
+            return
+        }
+        _state.update { it.copy(isEditRequested = true) }
     }
 
-    fun onBackClick() {
-        viewModelScope.launch { _uiEvent.send(UiEvent.NavigateBack) }
+    fun consumeEditRequest() {
+        _state.update { it.copy(isEditRequested = false) }
     }
 
     fun clearError() {

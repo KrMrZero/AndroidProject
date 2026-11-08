@@ -75,7 +75,6 @@
     <string name="error_load_projects">Error loading projects</string>
     <string name="error_system">System error: %s</string>
     <string name="error_task_id_missing">Task ID not provided</string>
-    <string name="error_project_id_missing">Project ID not provided</string>
     <string name="error_invalid_email_format">Invalid email format</string>
     <string name="error_participant_already_in_list">This participant is already in the list</string>
     <string name="error_user_not_found">User not found or not registered</string>
@@ -135,7 +134,8 @@
         <string name="project_empty_state">No projects found</string>
 
         <!-- Фильтры проектов -->
-        <string name="project_filter_all">All</string>
+    <string name="error_no_edit_permission">Insufficient permissions to edit</string>
+    <string name="project_filter_all">All</string>
         <string name="project_filter_management">Management</string>
         <string name="project_filter_participation">Participation</string>
         <string name="project_filter_archive">Archive</string>

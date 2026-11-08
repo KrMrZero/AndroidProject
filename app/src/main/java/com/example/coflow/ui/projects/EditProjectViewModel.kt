@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 
 data class ProjectMemberUi(
     val membershipId: String,
@@ -39,15 +40,19 @@ data class EditProjectUiState(
     val title: String = "",
     val description: String = "",
     val members: List<ProjectMemberUi> = emptyList(),
-    val canSave: Boolean = false,
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val isDeleting: Boolean = false,
     val showDeleteDialog: Boolean = false,
+    val isProjectSaved: Boolean = false,
+    val isProjectDeleted: Boolean = false,
     val errorMessage: String? = null,
     val errorMessageResId: Int? = null,
 ) {
     val descriptionLength: Int get() = description.length
+
+    val canSave: Boolean
+        get() = title.isNotBlank() && !isSaving && !isLoading && !isDeleting
 }
 
 class EditProjectViewModel(
@@ -57,7 +62,6 @@ class EditProjectViewModel(
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
 ) : ViewModel() {
-
     private val _state = MutableStateFlow(EditProjectUiState())
     val state: StateFlow<EditProjectUiState> = _state.asStateFlow()
 
@@ -81,46 +85,36 @@ class EditProjectViewModel(
 
     private fun loadProject() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            _state.update { it.copy(isLoading = true, errorMessage = null, errorMessageResId = null) }
+            try {
+                val currentUid = authRepository.getCurrentUserUid()
 
-            // 1. Загружаем сам проект
-            val project = projectRepository.getById(projectId).getOrElse { error ->
+                val project =
+                    projectRepository.getById(projectId).getOrElse { error ->
+                        _state.update { it.copyError(error) }
+                        return@launch
+                    }
+                val memberships =
+                    membershipRepository.getByProjectId(projectId).getOrElse { error ->
+                        _state.update { it.copyError(error) }
+                        return@launch
+                    }
+                val membersUi = memberships.map { buildMemberUi(it, currentUid) }
+
                 _state.update {
                     it.copy(
-                        isLoading = false,
-                        errorMessage = error.message ?: "Ошибка загрузки проекта",
+                        projectId = project.id,
+                        title = project.title,
+                        description = project.description,
+                        members = membersUi,
                     )
                 }
-                return@launch
-            }
-
-            // 2. Загружаем участников
-            val memberships = membershipRepository.getByProjectId(projectId)
-                .getOrElse { error ->
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "Ошибка загрузки участников",
-                        )
-                    }
-                    return@launch
-                }
-
-            // 3. Подтягиваем данные пользователей и собираем UI-модели
-            val currentUid = authRepository.getCurrentUserUid()
-            val membersUi = memberships.map { membership ->
-                buildMemberUi(membership, currentUid)
-            }
-
-            _state.update {
-                it.copy(
-                    projectId = project.id,
-                    title = project.title,
-                    description = project.description,
-                    members = membersUi,
-                    canSave = project.title.isNotBlank(),
-                    isLoading = false,
-                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copyError(e) }
+            } finally {
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -129,18 +123,19 @@ class EditProjectViewModel(
         membership: MembershipModel,
         currentUid: String?,
     ): ProjectMemberUi {
-        val user = userCache[membership.userId]
-            ?: userRepository.getById(membership.userId).getOrNull()?.also {
-                userCache[membership.userId] = it
-            }
+        val user =
+            userCache[membership.userId]
+                ?: userRepository.getById(membership.userId).getOrNull()?.also {
+                    userCache[membership.userId] = it
+                }
 
-        val name = user?.name?.takeIf { it.isNotBlank() } ?: "Пользователь"
+        val name = user?.name?.takeIf { it.isNotBlank() }.orEmpty()
         val email = user?.email.orEmpty()
 
         return ProjectMemberUi(
             membershipId = membership.id,
             userId = membership.userId,
-            name = if (membership.userId == currentUid) "$name (Вы)" else name,
+            name = name,
             email = email,
             initials = buildInitials(name),
             role = membership.role,
@@ -149,7 +144,8 @@ class EditProjectViewModel(
     }
 
     private fun buildInitials(name: String): String =
-        name.split(" ")
+        name
+            .split(" ")
             .mapNotNull { it.firstOrNull()?.uppercaseChar() }
             .take(2)
             .joinToString("")
@@ -158,12 +154,7 @@ class EditProjectViewModel(
     // Редактирование полей проекта
 
     fun onTitleChange(newTitle: String) {
-        _state.update {
-            it.copy(
-                title = newTitle,
-                canSave = newTitle.isNotBlank(),
-            )
-        }
+        _state.update { it.copy(title = newTitle) }
     }
 
     fun onDescriptionChange(newDescription: String) {
@@ -173,91 +164,97 @@ class EditProjectViewModel(
 
     fun removeMember(membershipId: String) {
         viewModelScope.launch {
-            val result = membershipRepository.deleteMember(membershipId)
-            result.fold(
-                onSuccess = {
-                    _state.update { state ->
-                        state.copy(
-                            members = state.members.filterNot { it.membershipId == membershipId },
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _state.update {
-                        it.copy(errorMessage = error.message ?: "Ошибка удаления участника")
-                    }
-                },
-            )
+            try {
+                membershipRepository.deleteMember(membershipId).fold(
+                    onSuccess = {
+                        _state.update { state ->
+                            state.copy(members = state.members.filterNot { it.membershipId == membershipId })
+                        }
+                    },
+                    onFailure = { error -> _state.update { it.copyError(error) } },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copyError(e) }
+            }
         }
     }
 
-    fun changeMemberRole(membershipId: String, newRole: Role) {
+    fun changeMemberRole(
+        membershipId: String,
+        newRole: Role,
+    ) {
         viewModelScope.launch {
-            val result = membershipRepository.updateMember(
-                id = membershipId,
-                update = MembershipUpdateDto(role = newRole),
-            )
-            result.fold(
-                onSuccess = { updated ->
-                    _state.update { state ->
-                        state.copy(
-                            members = state.members.map { member ->
-                                if (member.membershipId == updated.id) {
-                                    member.copy(role = updated.role)
-                                } else {
-                                    member
-                                }
-                            },
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _state.update {
-                        it.copy(errorMessage = error.message ?: "Ошибка смены роли")
-                    }
-                },
-            )
+            try {
+                membershipRepository
+                    .updateMember(
+                        id = membershipId,
+                        update = MembershipUpdateDto(role = newRole),
+                    ).fold(
+                        onSuccess = { updated ->
+                            _state.update { state ->
+                                state.copy(
+                                    members =
+                                        state.members.map { member ->
+                                            if (member.membershipId == updated.id) member.copy(role = updated.role) else member
+                                        },
+                                )
+                            }
+                        },
+                        onFailure = { error -> _state.update { it.copyError(error) } },
+                    )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copyError(e) }
+            }
         }
     }
 
     // Сохранение и удаление проекта
 
-    fun onSaveClick(onProjectSaved: () -> Unit) {
+    fun onSaveClick() {
         val current = _state.value
         if (current.isSaving) return
+        if (current.projectId.isBlank()) {
+            _state.update { it.copy(errorMessageResId = R.string.error_project_id_missing) }
+            return
+        }
 
-        _state.update { it.copy(isSaving = true, errorMessage = null) }
+        _state.update { it.copy(isSaving = true, errorMessage = null, errorMessageResId = null) }
 
         viewModelScope.launch {
-            val updateDto = ProjectUpdateDto(
-                title = current.title.trim(),
-                description = current.description.trim(),
-            )
-
-            val result = projectRepository.updateProject(current.projectId, updateDto)
-
-            result.fold(
-                onSuccess = { updated ->
-                    _state.update {
-                        it.copy(
-                            isSaving = false,
-                            title = updated.title,
-                            description = updated.description,
-                            canSave = updated.title.isNotBlank(),
-                        )
-                    }
-                    onProjectSaved()
-                },
-                onFailure = { error ->
-                    _state.update {
-                        it.copy(
-                            isSaving = false,
-                            errorMessage = error.message ?: "Ошибка сохранения проекта",
-                        )
-                    }
-                },
-            )
+            try {
+                val updateDto =
+                    ProjectUpdateDto(
+                        title = current.title.trim(),
+                        description = current.description.trim(),
+                    )
+                projectRepository.updateProject(current.projectId, updateDto).fold(
+                    onSuccess = { updated ->
+                        _state.update {
+                            it.copy(
+                                title = updated.title,
+                                description = updated.description,
+                                isProjectSaved = true,
+                            )
+                        }
+                    },
+                    onFailure = { error -> _state.update { it.copyError(error) } },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copyError(e) }
+            } finally {
+                _state.update { it.copy(isSaving = false) }
+            }
         }
+    }
+
+    fun consumeProjectSaved() {
+        _state.update { it.copy(isProjectSaved = false) }
     }
 
     fun showDeleteDialog() {
@@ -268,38 +265,53 @@ class EditProjectViewModel(
         _state.update { it.copy(showDeleteDialog = false) }
     }
 
-    fun confirmDelete(onProjectDeleted: () -> Unit) {
+    fun confirmDelete() {
         val current = _state.value
-        if (current.isDeleting || current.projectId.isBlank()) return
+        if (current.isDeleting) return
+        if (current.projectId.isBlank()) {
+            _state.update {
+                it.copy(showDeleteDialog = false, errorMessageResId = R.string.error_project_id_missing)
+            }
+            return
+        }
 
         _state.update {
-            it.copy(showDeleteDialog = false, isDeleting = true, errorMessage = null)
+            it.copy(showDeleteDialog = false, isDeleting = true, errorMessage = null, errorMessageResId = null)
         }
 
         viewModelScope.launch {
-            val result = projectRepository.deleteProject(current.projectId)
-            result.fold(
-                onSuccess = {
-                    _state.update { it.copy(isDeleting = false) }
-                    onProjectDeleted()
-                },
-                onFailure = { error ->
-                    _state.update {
-                        it.copy(
-                            isDeleting = false,
-                            errorMessage = error.message ?: "Ошибка архивации проекта",
-                        )
-                    }
-                },
-            )
+            try {
+                projectRepository.deleteProject(current.projectId).fold(
+                    onSuccess = {
+                        _state.update { it.copy(isProjectDeleted = true) }
+                    },
+                    onFailure = { error -> _state.update { it.copyError(error) } },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copyError(e) }
+            } finally {
+                _state.update { it.copy(isDeleting = false) }
+            }
         }
     }
 
+    fun consumeProjectDeleted() {
+        _state.update { it.copy(isProjectDeleted = false) }
+    }
+
     fun clearError() {
-        _state.update { it.copy(errorMessage = null) }
+        _state.update { it.copy(errorMessage = null, errorMessageResId = null) }
     }
 
     companion object {
         const val MAX_DESCRIPTION_LENGTH = 250
     }
 }
+
+private fun EditProjectUiState.copyError(error: Throwable): EditProjectUiState =
+    copy(
+        errorMessage = error.message,
+        errorMessageResId = if (error.message == null) R.string.error_system else null,
+    )

@@ -56,7 +56,6 @@ class AddProjectParticipantViewModel(
     private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
 ) : ViewModel() {
-
     private val projectId: String = savedStateHandle.get<String>("projectId").orEmpty()
 
     private val _state = MutableStateFlow(AddProjectParticipantUiState())
@@ -91,11 +90,11 @@ class AddProjectParticipantViewModel(
                         existingMemberUserIds = memberships.map { it.userId }.toSet()
                         _state.update { it.copy(isInitialLoading = false) }
                     },
-                    onFailure = { error ->
+                    onFailure = {
                         _state.update {
                             it.copy(
                                 isInitialLoading = false,
-                                errorMessage = error.message,
+                                errorMessage = null,
                                 errorMessageResId = R.string.error_system,
                             )
                         }
@@ -107,7 +106,7 @@ class AddProjectParticipantViewModel(
                 _state.update {
                     it.copy(
                         isInitialLoading = false,
-                        errorMessage = e.message,
+                        errorMessage = null,
                         errorMessageResId = R.string.error_system,
                     )
                 }
@@ -159,10 +158,9 @@ class AddProjectParticipantViewModel(
 
                 val userResult = userRepository.getByEmail(currentQuery)
                 if (userResult.isFailure) {
-                    val error = userResult.exceptionOrNull()
                     _state.update {
                         it.copy(
-                            errorMessage = error?.message,
+                            errorMessage = null,
                             errorMessageResId = R.string.error_system,
                         )
                     }
@@ -203,12 +201,13 @@ class AddProjectParticipantViewModel(
                 val participantName = user.name.ifBlank { user.email.ifBlank { currentQuery } }
                 val initials = getInitials(participantName)
 
-                val newParticipant = ProjectParticipantItem(
-                    uid = user.uid,
-                    email = user.email.ifBlank { currentQuery },
-                    name = participantName,
-                    initials = initials,
-                )
+                val newParticipant =
+                    ProjectParticipantItem(
+                        uid = user.uid,
+                        email = user.email.ifBlank { currentQuery },
+                        name = participantName,
+                        initials = initials,
+                    )
 
                 _state.update { state ->
                     state.copy(
@@ -223,7 +222,7 @@ class AddProjectParticipantViewModel(
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
-                        errorMessage = e.message,
+                        errorMessage = null,
                         errorMessageResId = R.string.error_system,
                     )
                 }
@@ -239,15 +238,16 @@ class AddProjectParticipantViewModel(
     fun onRemoveParticipant(participant: ProjectParticipantItem) {
         _state.update { state ->
             state.copy(
-                participants = state.participants.filterNot {
-                    it.uid == participant.uid || it.email.equals(participant.email, ignoreCase = true)
-                },
+                participants =
+                    state.participants.filterNot {
+                        it.uid == participant.uid || it.email.equals(participant.email, ignoreCase = true)
+                    },
             )
         }
     }
 
     /**
-     * Кнопка «Пригласить» (заглушка по текущим требованиям).
+     * Кнопка «Сохранить» (заглушка по текущим требованиям).
      * Выставляет флаг `isInvited = true` в состоянии UI.
      */
     fun onInviteClick() {
