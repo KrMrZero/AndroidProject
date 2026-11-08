@@ -71,6 +71,12 @@
     <string name="error_load_projects">Ошибка загрузки проектов</string>
     <string name="error_system">Системная ошибка</string>
     <string name="error_task_id_missing">ID задачи не передан</string>
+    <string name="error_project_id_missing">ID проекта не передан</string>
+    <string name="error_invalid_email_format">Некорректный формат электронной почты</string>
+    <string name="error_participant_already_in_list">Этот участник уже добавлен в текущий список</string>
+    <string name="error_user_not_found">Пользователь не найден или не зарегистрирован</string>
+    <string name="error_already_project_member_self">Вы уже являетесь участником данного проекта</string>
+    <string name="error_already_project_member">Этот пользователь уже состоит в данном проекте</string>
     <string name="error_prefix">Ошибка: %s</string>
 
     <!-- Группы -->
@@ -127,6 +133,7 @@
     <string name="project_status_archive">Архив</string>
     <string name="project_filter_title">Фильтр</string>
     <string name="project_empty_state">Проекты не найдены</string>
+    <string name="error_no_edit_permission">Недостаточно прав для редактирования</string>
 
     <!-- Фильтры проектов -->
     <string name="project_filter_all">Все</string>
@@ -201,4 +208,12 @@
     <string name="error_title">Ошибка</string>
     <string name="ok_button">ОК</string>
     <string name="no_tasks_placeholder">Нет задач</string>
+
+    <!-- Экран задач проекта -->
+    <string name="project_tasks_title">Задачи проекта</string>
+    <string name="project_tasks_active">активных</string>
+    <string name="project_tasks_completed">завершено</string>
+    <string name="project_tasks_info_desc">Информация о проекте</string>
+    <string name="project_tasks_filter_all">Все</string>
+    <string name="project_tasks_mine_badge">Моя</string>
 </resources>
