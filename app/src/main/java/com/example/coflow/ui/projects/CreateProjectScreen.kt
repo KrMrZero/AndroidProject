@@ -191,6 +191,7 @@ fun CreateProjectScreen(
 fun CreateProjectRoute(
     onBackClick: () -> Unit,
     onProjectCreated: (CreateProjectResult) -> Unit,
+    onAddParticipantClick: () -> Unit,
     viewModel: CreateProjectViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -200,7 +201,7 @@ fun CreateProjectRoute(
         onBackClick = onBackClick,
         onTitleChange = viewModel::onTitleChange,
         onDescriptionChange = viewModel::onDescriptionChange,
-        onAddParticipantClick = viewModel::onAddParticipantClick,
+        onAddParticipantClick = onAddParticipantClick,
         onRemoveParticipantClick = viewModel::onRemoveParticipantClick,
         onConfirmRemoveParticipant = viewModel::onConfirmRemoveParticipant,
         onDismissRemoveParticipantDialog = viewModel::onDismissRemoveParticipantDialog,

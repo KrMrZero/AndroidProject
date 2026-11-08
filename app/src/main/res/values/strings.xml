@@ -197,6 +197,11 @@
 
     <string name="deadline_header">Дата окончания</string>
 
+    <!-- Экран добавления участника -->
+    <string name="add_participant_header">Добавить участника</string>
+    <string name="enter_email_placeholder">Введите адрес почты</string>
+    <string name="save_participant_button">Сохранить</string>
+
     <!-- Общие сообщения -->
     <string name="error_title">Ошибка</string>
     <string name="ok_button">ОК</string>
