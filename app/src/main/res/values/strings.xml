@@ -72,6 +72,7 @@
     <string name="error_system">Системная ошибка</string>
     <string name="error_task_id_missing">ID задачи не передан</string>
     <string name="error_prefix">Ошибка: %s</string>
+    <string name="error_project_id_missing">ID проекта не передан</string>
 
     <!-- Группы -->
     <string name="tasks_group_planned">К исполнению</string>
