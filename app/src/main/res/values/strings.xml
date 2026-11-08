@@ -201,4 +201,12 @@
     <string name="error_title">Ошибка</string>
     <string name="ok_button">ОК</string>
     <string name="no_tasks_placeholder">Нет задач</string>
+
+    <!-- Экран задач проекта -->
+    <string name="project_tasks_title">Задачи проекта</string>
+    <string name="project_tasks_active">активных</string>
+    <string name="project_tasks_completed">завершено</string>
+    <string name="project_tasks_info_desc">Информация о проекте</string>
+    <string name="project_tasks_filter_all">Все</string>
+    <string name="project_tasks_mine_badge">Моя</string>
 </resources>

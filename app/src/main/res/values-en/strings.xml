@@ -190,4 +190,12 @@
     <string name="error_title">Error</string>
     <string name="ok_button">OK</string>
     <string name="no_tasks_placeholder">No tasks</string>
+
+    <!-- Project tasks screen -->
+    <string name="project_tasks_title">Project tasks</string>
+    <string name="project_tasks_active">active</string>
+    <string name="project_tasks_completed">completed</string>
+    <string name="project_tasks_info_desc">Project info</string>
+    <string name="project_tasks_filter_all">All</string>
+    <string name="project_tasks_mine_badge">Mine</string>
 </resources>
