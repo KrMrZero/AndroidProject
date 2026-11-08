@@ -71,6 +71,12 @@
     <string name="error_load_projects">Ошибка загрузки проектов</string>
     <string name="error_system">Системная ошибка</string>
     <string name="error_task_id_missing">ID задачи не передан</string>
+    <string name="error_project_id_missing">ID проекта не передан</string>
+    <string name="error_invalid_email_format">Некорректный формат электронной почты</string>
+    <string name="error_participant_already_in_list">Этот участник уже добавлен в текущий список</string>
+    <string name="error_user_not_found">Пользователь не найден или не зарегистрирован</string>
+    <string name="error_already_project_member_self">Вы уже являетесь участником данного проекта</string>
+    <string name="error_already_project_member">Этот пользователь уже состоит в данном проекте</string>
     <string name="error_prefix">Ошибка: %s</string>
 
     <!-- Группы -->

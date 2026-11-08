@@ -1,19 +1,20 @@
 package com.example.coflow.ui.projects
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.coflow.R
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.repositories.FirebaseMembershipRepositoryImpl
 import com.example.coflow.repositories.FirebaseUserRepositoryImpl
 import com.example.coflow.repositories.MembershipRepository
 import com.example.coflow.repositories.UserRepository
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -33,24 +34,16 @@ data class ProjectParticipantItem(
 data class AddProjectParticipantUiState(
     val emailQuery: String = "",
     val participants: List<ProjectParticipantItem> = emptyList(),
+    val isInitialLoading: Boolean = true,
     val isLoading: Boolean = false,
     val isSubmitting: Boolean = false,
+    val isInvited: Boolean = false,
     val errorMessage: String? = null,
+    @param:StringRes val errorMessageResId: Int? = null,
 ) {
-    /** Кнопка «Пригласить» активна, если список участников не пустой и нет процесса отправки. */
+    /** Кнопка «Пригласить» активна, если список участников не пустой и нет процесса загрузки/отправки. */
     val canInvite: Boolean
-        get() = participants.isNotEmpty() && !isSubmitting && !isLoading
-}
-
-/**
- * Одноразовые события UI (например, успешная отправка приглашений).
- */
-sealed class AddProjectParticipantUiEvent {
-    object InviteSuccess : AddProjectParticipantUiEvent()
-
-    data class ShowToast(
-        val message: String,
-    ) : AddProjectParticipantUiEvent()
+        get() = participants.isNotEmpty() && !isSubmitting && !isLoading && !isInitialLoading
 }
 
 /**
@@ -63,10 +56,8 @@ class AddProjectParticipantViewModel(
     private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
 ) : ViewModel() {
-    private val projectId: String = savedStateHandle.get<String>("projectId").orEmpty()
 
-    private val _uiEvent = Channel<AddProjectParticipantUiEvent>()
-    val uiEvent = _uiEvent.receiveAsFlow()
+    private val projectId: String = savedStateHandle.get<String>("projectId").orEmpty()
 
     private val _state = MutableStateFlow(AddProjectParticipantUiState())
     val state: StateFlow<AddProjectParticipantUiState> = _state.asStateFlow()
@@ -76,7 +67,12 @@ class AddProjectParticipantViewModel(
 
     init {
         if (projectId.isBlank()) {
-            _state.update { it.copy(errorMessage = "Не указан ID проекта") }
+            _state.update {
+                it.copy(
+                    isInitialLoading = false,
+                    errorMessageResId = R.string.error_project_id_missing,
+                )
+            }
         } else {
             loadExistingMembers()
         }
@@ -87,8 +83,34 @@ class AddProjectParticipantViewModel(
      */
     private fun loadExistingMembers() {
         viewModelScope.launch {
-            membershipRepository.getByProjectId(projectId).onSuccess { memberships ->
-                existingMemberUserIds = memberships.map { it.userId }.toSet()
+            _state.update { it.copy(isInitialLoading = true) }
+            try {
+                val result = membershipRepository.getByProjectId(projectId)
+                result.fold(
+                    onSuccess = { memberships ->
+                        existingMemberUserIds = memberships.map { it.userId }.toSet()
+                        _state.update { it.copy(isInitialLoading = false) }
+                    },
+                    onFailure = { error ->
+                        _state.update {
+                            it.copy(
+                                isInitialLoading = false,
+                                errorMessage = error.message,
+                                errorMessageResId = R.string.error_system,
+                            )
+                        }
+                    },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        isInitialLoading = false,
+                        errorMessage = e.message,
+                        errorMessageResId = R.string.error_system,
+                    )
+                }
             }
         }
     }
@@ -97,117 +119,154 @@ class AddProjectParticipantViewModel(
      * Изменение текста в поле ввода почты нового участника.
      */
     fun onEmailQueryChange(query: String) {
-        _state.update { it.copy(emailQuery = query, errorMessage = null) }
+        _state.update { it.copy(emailQuery = query, errorMessage = null, errorMessageResId = null) }
     }
 
     /**
      * Добавление участника по кнопке «+».
-     * Выполняет проверки:
-     * - Валидность почты
-     * - Отсутствие в текущем списке подготавливаемых участников
-     * - Существование зарегистрированного пользователя в базе
-     * - Проверка, не является ли пользователь текущим пользователем или уже членом проекта
      */
     fun onAddParticipantClick() {
-        val currentQuery = _state.value.emailQuery.trim()
+        val currentState = _state.value
+        if (currentState.isInitialLoading || currentState.isLoading) return
 
+        val currentQuery = currentState.emailQuery.trim()
         if (currentQuery.isBlank()) return
 
         if (!EMAIL_REGEX.matches(currentQuery)) {
-            _state.update { it.copy(errorMessage = "Некорректный формат электронной почты") }
+            _state.update {
+                it.copy(
+                    errorMessage = null,
+                    errorMessageResId = R.string.error_invalid_email_format,
+                )
+            }
             return
         }
 
-        if (_state.value.participants.any { it.email.equals(currentQuery, ignoreCase = true) }) {
-            _state.update { it.copy(errorMessage = "Этот участник уже добавлен в текущий список") }
+        if (currentState.participants.any { it.email.equals(currentQuery, ignoreCase = true) }) {
+            _state.update {
+                it.copy(
+                    errorMessage = null,
+                    errorMessageResId = R.string.error_participant_already_in_list,
+                )
+            }
             return
         }
 
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            _state.update { it.copy(isLoading = true, errorMessage = null, errorMessageResId = null) }
+            try {
+                val currentUid = authRepository.getCurrentUserUid().orEmpty()
 
-            val userResult = userRepository.getByEmail(currentQuery)
-            val user = userResult.getOrNull()
-
-            if (user == null || user.isDeleted || user.uid.isBlank()) {
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "Пользователь не найден или не зарегистрирован в системе",
-                    )
+                val userResult = userRepository.getByEmail(currentQuery)
+                if (userResult.isFailure) {
+                    val error = userResult.exceptionOrNull()
+                    _state.update {
+                        it.copy(
+                            errorMessage = error?.message,
+                            errorMessageResId = R.string.error_system,
+                        )
+                    }
+                    return@launch
                 }
-                return@launch
-            }
 
-            val currentUid = authRepository.getCurrentUserUid().orEmpty()
-            if (user.uid == currentUid) {
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "Вы уже являетесь участником данного проекта",
-                    )
+                val user = userResult.getOrNull()
+                if (user == null || user.isDeleted || user.uid.isBlank()) {
+                    _state.update {
+                        it.copy(
+                            errorMessage = null,
+                            errorMessageResId = R.string.error_user_not_found,
+                        )
+                    }
+                    return@launch
                 }
-                return@launch
-            }
 
-            if (existingMemberUserIds.contains(user.uid)) {
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "Этот пользователь уже состоит в данном проекте",
-                    )
+                if (user.uid == currentUid) {
+                    _state.update {
+                        it.copy(
+                            errorMessage = null,
+                            errorMessageResId = R.string.error_already_project_member_self,
+                        )
+                    }
+                    return@launch
                 }
-                return@launch
-            }
 
-            val participantName = user.name.ifBlank { user.email.ifBlank { currentQuery } }
-            val initials = getInitials(participantName)
+                if (existingMemberUserIds.contains(user.uid)) {
+                    _state.update {
+                        it.copy(
+                            errorMessage = null,
+                            errorMessageResId = R.string.error_already_project_member,
+                        )
+                    }
+                    return@launch
+                }
 
-            val newParticipant =
-                ProjectParticipantItem(
+                val participantName = user.name.ifBlank { user.email.ifBlank { currentQuery } }
+                val initials = getInitials(participantName)
+
+                val newParticipant = ProjectParticipantItem(
                     uid = user.uid,
                     email = user.email.ifBlank { currentQuery },
                     name = participantName,
                     initials = initials,
                 )
 
-            _state.update { state ->
-                state.copy(
-                    participants = state.participants + newParticipant,
-                    emailQuery = "",
-                    isLoading = false,
-                    errorMessage = null,
-                )
+                _state.update { state ->
+                    state.copy(
+                        participants = state.participants + newParticipant,
+                        emailQuery = "",
+                        errorMessage = null,
+                        errorMessageResId = null,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        errorMessage = e.message,
+                        errorMessageResId = R.string.error_system,
+                    )
+                }
+            } finally {
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
 
     /**
-     * Удаление участника из текущего списка подготавливаемых участников.
+     * Удаление участника из подготавливаемого списка.
      */
     fun onRemoveParticipant(participant: ProjectParticipantItem) {
         _state.update { state ->
             state.copy(
-                participants =
-                    state.participants.filterNot {
-                        it.uid == participant.uid || it.email.equals(participant.email, ignoreCase = true)
-                    },
+                participants = state.participants.filterNot {
+                    it.uid == participant.uid || it.email.equals(participant.email, ignoreCase = true)
+                },
             )
         }
     }
 
     /**
-     * Функционал рассылки приглашений будет реализован позже.
+     * Кнопка «Пригласить» (заглушка по текущим требованиям).
+     * Выставляет флаг `isInvited = true` в состоянии UI.
      */
-    fun onInviteClick(onSuccessfullyInvited: (() -> Unit)? = null) {
-        onSuccessfullyInvited?.invoke()
+    fun onInviteClick() {
+        val currentParticipants = _state.value.participants
+        if (currentParticipants.isEmpty() || _state.value.isSubmitting) return
+
+        if (projectId.isBlank()) {
+            _state.update { it.copy(errorMessageResId = R.string.error_project_id_missing) }
+            return
+        }
+
+        _state.update { it.copy(isInvited = true) }
     }
 
     /**
-     * Очистка ошибки.
+     * Очистка ошибок.
      */
     fun clearError() {
-        _state.update { it.copy(errorMessage = null) }
+        _state.update { it.copy(errorMessage = null, errorMessageResId = null) }
     }
 
     private fun getInitials(value: String): String {
