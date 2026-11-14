@@ -115,6 +115,8 @@
     <!-- Строка для подтверждения действия с задачей -->
     <string name="task_action_confirm_take">Take task?</string>
     <string name="task_action_confirm_complete">Complete task?</string>
+    <string name="task_action_message_take">Are you sure you want to take the task "%1$s"?</string>
+    <string name="task_action_message_complete">Are you sure you want to mark the task "%1$s" as completed?</string>
     <string name="task_action_taken">Task taken successfully</string>
     <string name="task_action_completed">Task completed successfully</string>
     <string name="task_action_button_take">Take</string>
