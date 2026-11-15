@@ -98,32 +98,35 @@ class FirebaseTaskRepositoryImpl(
             awaitClose { registration.remove() }
         }
 
-    override fun observeTasksByProjectId(id: String): Flow<Result<List<TaskModel>>> =
+    /**
+     * Реализация [TaskRepository.observeById] через [callbackFlow] и снапшот-слушатель
+     *
+     * При удалении документа отправляется [Result.failure], но поток не закрывается —
+     * это позволяет продолжить наблюдение, если задачу пересоздадут с тем же ID.
+     *
+     * @see TaskRepository.observeById
+     */
+    override fun observeById(id: String): Flow<Result<TaskModel>> =
         callbackFlow {
-            val projectDocument = projectCollection.document(id)
-            val registration =
-                taskCollection
-                    .whereEqualTo("projectId", projectDocument)
-                    .addSnapshotListener { snapshot, error ->
-                        if (error != null) {
-                            trySend(
-                                Result.failure(
-                                    Exception(error.message ?: "Ошибка наблюдения за задачами"),
-                                ),
-                            )
-                            close()
+            val registration = taskCollection
+                .document(id)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        trySend(
+                            Result.failure(
+                                Exception(error.message ?: "Ошибка наблюдения за задачей"),
+                            ),
+                        )
+                        close()
+                    } else {
+                        val task = snapshot?.let { fromDocument(it) }
+                        if (task == null) {
+                            trySend(Result.failure(Exception("Задача не найдена")))
                         } else {
-                            trySend(
-                                Result.success(
-                                    snapshot
-                                        ?.documents
-                                        ?.mapNotNull { fromDocument(it) }
-                                        .orEmpty(),
-                                ),
-                            )
+                            trySend(Result.success(task))
                         }
                     }
-
+                }
             awaitClose { registration.remove() }
         }
 

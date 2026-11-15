@@ -35,7 +35,6 @@ import com.example.coflow.ui.tasks.TasksRoute
 import com.example.coflow.ui.tasks.TasksScreenViewModel
 import com.example.coflow.ui.theme.CoFlowIndication
 import com.example.coflow.ui.theme.CoFlowTheme
-import com.example.coflow.ui.tasks.AddParticipantScreen
 
 object Screen {
     const val TASKS = "tasks"
@@ -47,8 +46,6 @@ object Screen {
     const val PROJECTS = "projects"
     const val CREATE_PROJECT = "create_project"
     const val EDIT_TASK = "edit_task/{taskId}"
-
-    const val ADD_PARTICIPANT = "add_participant"
 }
 
 class MainActivity : ComponentActivity() {
@@ -108,21 +105,6 @@ class MainActivity : ComponentActivity() {
                                     onProjectCreated = {
                                         navController.popBackStack()
                                     },
-                                    onAddParticipantClick = {
-                                        navController.navigate(Screen.ADD_PARTICIPANT)
-                                    }
-                                )
-                            }
-
-                            composable(Screen.ADD_PARTICIPANT) {
-                                AddParticipantScreen(
-                                    onBackClick = { navController.popBackStack() },
-                                    onSaveClick = { participants ->
-                                        // Здесь можно сохранить участников (например, в ViewModel проекта)
-                                        // и закрыть экран
-                                        println("Сохранены участники: $participants")
-                                        navController.popBackStack()
-                                    }
                                 )
                             }
 

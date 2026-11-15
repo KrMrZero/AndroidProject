@@ -36,8 +36,6 @@ interface TaskRepository {
     /** Возвращает задачи проекта по строковому `projectId`; пустой список — норма. */
     suspend fun getByProjectId(id: String): Result<List<TaskModel>>
 
-    fun observeByProjectId(id: String): Flow<Result<List<TaskModel>>>
-
     /**
      * Наблюдает за задачами проекта в реальном времени.
      *
@@ -46,11 +44,7 @@ interface TaskRepository {
      * Подписка снимается при отмене сбора.
 
      */
-    @Deprecated(
-        message = "Неправильный нейминг функции",
-        replaceWith = ReplaceWith("observeByProjectId(id)")
-    )
-    fun observeTasksByProjectId(id: String): Flow<Result<List<TaskModel>>>
+    fun observeByProjectId(id: String): Flow<Result<List<TaskModel>>>
 
     /**
      * Создаёт задачу из [TaskAddDto].
@@ -72,4 +66,11 @@ interface TaskRepository {
 
     /** Удаляет задачу по ID. Возвращает [Result.failure], если удалить не удалось. */
     suspend fun deleteTask(id: String): Result<Unit>
+
+    /**
+    * Наблюдает за одной задачей по её ID в реальном времени.
+    * Это холодный [Flow]: при подписке сразу приходит текущее состояние задачи,
+    * затем — изменения документа из Firestore.
+    */
+    fun observeById(id: String): Flow<Result<TaskModel>>
 }

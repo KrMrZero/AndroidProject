@@ -139,7 +139,6 @@ class EditTaskViewModel(
         }
     }
 
-
     fun onTitleChange(newTitle: String) {
         _state.update { it.copy(title = newTitle, canSave = newTitle.isNotBlank() && it.dueDate.isNotBlank()) }
     }

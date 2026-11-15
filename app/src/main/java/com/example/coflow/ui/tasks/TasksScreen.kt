@@ -2,7 +2,6 @@ package com.example.coflow.ui.tasks
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -47,10 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -97,7 +94,7 @@ fun TasksScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var snackbarColor by remember {
-        mutableStateOf(Color(0xFF2860D9))
+        mutableStateOf(CoFlowColors.Blue)
     }
 
     val scrollState = rememberScrollState()
@@ -249,7 +246,7 @@ fun TasksScreen(
                                     icon = "tasks",
                                     title = stringResource(R.string.navigation_tasks),
                                     selected = true,
-                                    onClick = {},
+                                    onClick = onNavigateToProfile,
                                 ),
                                 NavItem(
                                     icon = "folder",
@@ -271,24 +268,38 @@ fun TasksScreen(
         pendingTask?.let { task ->
             val isTakingTask = task.status == TaskStatus.TODO
 
+            val snackbarMessage =
+                stringResource(
+                    if (isTakingTask) {
+                        R.string.task_action_taken
+                    } else {
+                        R.string.task_action_completed
+                    },
+                )
+
             AlertDialog(
                 onDismissRequest = { pendingTask = null },
                 title = {
                     Text(
-                        if (isTakingTask) {
-                            "Взять задачу?"
-                        } else {
-                            "Завершить задачу?"
-                        },
+                        stringResource(
+                            if (isTakingTask) {
+                                R.string.task_action_confirm_take
+                            } else {
+                                R.string.task_action_confirm_complete
+                            },
+                        ),
                     )
                 },
                 text = {
                     Text(
-                        if (isTakingTask) {
-                            "Вы действительно хотите взять задачу «${task.title}» в работу?"
-                        } else {
-                            "Вы действительно хотите отметить задачу «${task.title}» выполненной?"
-                        },
+                        stringResource(
+                            if (isTakingTask) {
+                                R.string.task_action_message_take
+                            } else {
+                                R.string.task_action_message_complete
+                            },
+                            task.title,
+                        ),
                     )
                 },
                 confirmButton = {
@@ -299,32 +310,35 @@ fun TasksScreen(
 
                             snackbarColor =
                                 if (isTakingTask) {
-                                    Color(0xFF2860D9)
+                                    CoFlowColors.Blue
                                 } else {
-                                    Color(0xFF20A65A)
+                                    CoFlowColors.Green
                                 }
 
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar(
-                                    if (isTakingTask) {
-                                        "Вы успешно взяли задачу"
-                                    } else {
-                                        "Задача выполнена успешно"
-                                    },
-                                )
+                                snackbarHostState.showSnackbar(snackbarMessage)
                             }
                         },
                     ) {
-                        Text(if (isTakingTask) "Взять" else "Завершить")
+                        Text(
+                            stringResource(
+                                if (isTakingTask) {
+                                    R.string.task_action_button_take
+                                } else {
+                                    R.string.task_action_button_complete
+                                },
+                            ),
+                        )
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { pendingTask = null }) {
-                        Text("Отмена")
+                        Text(stringResource(R.string.task_action_button_cancel))
                     }
                 },
             )
         }
+
         SnackbarHost(
             hostState = snackbarHostState,
             modifier =
@@ -343,8 +357,8 @@ fun TasksScreen(
                     horizontalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        text = if (snackbarColor == Color(0xFF20A65A)) "✓" else "●",
-                        color = Color.White,
+                        text = if (snackbarColor == CoFlowColors.Green) "✓" else "●",
+                        color = CoFlowColors.White,
                         fontWeight = FontWeight.Bold,
                     )
 
@@ -354,7 +368,7 @@ fun TasksScreen(
                         text = data.visuals.message,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White,
+                        color = CoFlowColors.White,
                         maxLines = 1,
                     )
                 }
@@ -401,7 +415,7 @@ private fun TaskGroupCard(
             }
             Spacer(Modifier.weight(1f))
             CoFlowIcon(
-                name = if (group.isExpanded) "chevron_up" else "chevron",
+                name = if (group.isExpanded) "chevron_down" else "chevron_left",
                 modifier = Modifier.size(18.dp),
                 color = CoFlowColors.Blue,
             )
@@ -646,7 +660,7 @@ private fun SortFilterPanel(
                             maxLines = 1,
                         )
                         CoFlowIcon(
-                            name = "chevron_down",
+                            name = if (expanded) "chevron_up" else "chevron",
                             modifier = Modifier.size(14.dp),
                             color = CoFlowColors.Blue,
                         )
@@ -662,10 +676,10 @@ private fun SortFilterPanel(
                     RoundedCornerShape(
                         16.dp,
                     ),
-                containerColor = Color(0xFFF4F8FF),
+                containerColor = CoFlowColors.BackgroundTop,
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp,
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.82f)),
+                border = BorderStroke(1.dp, CoFlowColors.White.copy(alpha = 0.82f)),
             ) {
                 GlassGroupingOption(
                     title = stringResource(R.string.grouping_status),
@@ -712,7 +726,7 @@ private fun SortFilterPanel(
                         )
                         Spacer(Modifier.width(3.dp))
                         CoFlowIcon(
-                            name = "chevron_down",
+                            name = if (expanded) "chevron_up" else "chevron",
                             modifier = Modifier.size(14.dp),
                             color = CoFlowColors.Blue,
                         )
@@ -728,15 +742,10 @@ private fun SortFilterPanel(
                     RoundedCornerShape(
                         16.dp,
                     ),
-                containerColor =
-                    Color(
-                        0xFFF4F8FF,
-                    ).copy(
-                        alpha = 1f,
-                    ),
+                containerColor = CoFlowColors.BackgroundTop,
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp,
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.82f)),
+                border = BorderStroke(1.dp, CoFlowColors.White.copy(alpha = 0.82f)),
             ) {
                 availableFilters.forEach { item ->
                     val displayName =
@@ -776,8 +785,8 @@ private fun GlassControlSurface(
                         Brush.verticalGradient(
                             colors =
                                 listOf(
-                                    Color.White.copy(alpha = 0.30f),
-                                    Color(0xFFDDEAFF).copy(alpha = 0.16f),
+                                    CoFlowColors.White.copy(alpha = 0.30f),
+                                    CoFlowColors.BackgroundLight.copy(alpha = 0.16f),
                                 ),
                         ),
                 ).border(
@@ -786,7 +795,7 @@ private fun GlassControlSurface(
                         Brush.verticalGradient(
                             colors =
                                 listOf(
-                                    Color.White.copy(alpha = 0.92f),
+                                    CoFlowColors.White.copy(alpha = 0.92f),
                                     CoFlowColors.Blue.copy(alpha = 0.14f),
                                 ),
                         ),
@@ -816,25 +825,32 @@ private fun GlassGroupingOption(
                 .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Canvas(modifier = Modifier.size(10.dp)) {
-            if (selected) {
-                drawCircle(
-                    brush =
-                        Brush.linearGradient(
-                            colors = listOf(Color(0xFF6EA5FF), CoFlowColors.Blue),
-                            start = Offset.Zero,
-                            end =
-                                androidx.compose.ui.geometry
-                                    .Offset(size.width, size.height),
-                        ),
-                )
-            } else {
-                drawCircle(
-                    color = CoFlowGlassStyles.BlueBorder,
-                    style = Stroke(width = 1.2.dp.toPx()),
-                )
-            }
-        }
+        Box(
+            modifier =
+                Modifier
+                    .size(10.dp)
+                    .then(
+                        if (selected) {
+                            Modifier.background(
+                                brush =
+                                    Brush.linearGradient(
+                                        colors =
+                                            listOf(
+                                                CoFlowColors.BlueLight,
+                                                CoFlowColors.Blue,
+                                            ),
+                                    ),
+                                shape = RoundedCornerShape(50),
+                            )
+                        } else {
+                            Modifier.border(
+                                width = 1.2.dp,
+                                color = CoFlowGlassStyles.BlueBorder,
+                                shape = RoundedCornerShape(50),
+                            )
+                        },
+                    ),
+        )
         Spacer(Modifier.width(9.dp))
         Text(text = title, fontSize = 13.sp, color = CoFlowColors.TextPrimary, maxLines = 1)
     }
