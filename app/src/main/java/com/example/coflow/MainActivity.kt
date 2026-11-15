@@ -22,6 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.ui.auth.AuthRoute
+import com.example.coflow.ui.projects.AddParticipantRoute
 import com.example.coflow.ui.projects.CreateProjectRoute
 import com.example.coflow.ui.projects.ProjectsRoute
 import com.example.coflow.ui.tasks.ChooseAssigneeRoute
@@ -46,6 +47,10 @@ object Screen {
     const val PROJECTS = "projects"
     const val CREATE_PROJECT = "create_project"
     const val EDIT_TASK = "edit_task/{taskId}"
+
+    const val ADD_PROJECT_PARTICIPANT = "add_participant/{projectId}"
+
+    fun addParticipant(projectId: String = "") = "add_participant/$projectId"
 }
 
 class MainActivity : ComponentActivity() {
@@ -93,16 +98,35 @@ class MainActivity : ComponentActivity() {
                                 ProjectsRoute(
                                     onNavigateToCreateProject = { navController.navigate(Screen.CREATE_PROJECT) },
                                     onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
+                                    onNavigateToProjectTasks = { projectId -> navController.navigate("project_tasks/$projectId")},
                                 )
                             }
 
-                            // Экран создания проекта
+// Экран создания проекта
                             composable(Screen.CREATE_PROJECT) {
-                                val context = LocalContext.current
-
                                 CreateProjectRoute(
                                     onBackClick = { navController.popBackStack() },
                                     onProjectCreated = {
+                                        navController.popBackStack()
+                                    },
+                                    onAddParticipantClick = {
+                                        navController.navigate(Screen.addParticipant(""))
+                                    },
+                                )
+                            }
+
+// Добавление участника в проект
+                            composable(
+                                route = Screen.ADD_PROJECT_PARTICIPANT,
+                                arguments = listOf(
+                                    navArgument("projectId") {
+                                        type = NavType.StringType
+                                    },
+                                ),
+                            ) {
+                                AddParticipantRoute(
+                                    onBackClick = { navController.popBackStack() },
+                                    onInvited = {
                                         navController.popBackStack()
                                     },
                                 )

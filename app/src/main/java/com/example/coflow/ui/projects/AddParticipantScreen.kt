@@ -1,4 +1,4 @@
-package com.example.coflow.ui.tasks
+package com.example.coflow.ui.projects
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -12,10 +12,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.RemoveCircle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,49 +31,46 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coflow.R
-import com.example.coflow.ui.components.*
-import com.example.coflow.ui.theme.*
-
-data class Participant(
-    val email: String,
-    val name: String = "Пользователь",
-    val initials: String = email.take(2).uppercase()
-)
+import com.example.coflow.ui.components.CoFlowGlassCard
+import com.example.coflow.ui.components.CoFlowGlassTextField
+import com.example.coflow.ui.components.CoFlowPrimaryButton
+import com.example.coflow.ui.components.CoFlowScreenHeader
+import com.example.coflow.ui.theme.CoFlowColors
+import com.example.coflow.ui.theme.CoFlowSpacing
+import com.example.coflow.ui.theme.CoFlowTheme
+import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
 
 @Composable
-fun AddParticipantScreen(
+fun AddProjectParticipantScreen(
+    state: AddProjectParticipantUiState,
     onBackClick: () -> Unit,
-    onSaveClick: (List<Participant>) -> Unit,
+    onEmailQueryChange: (String) -> Unit,
+    onAddParticipantClick: () -> Unit,
+    onRemoveParticipantClick: (ProjectParticipantItem) -> Unit,
+    onInviteClick: () -> Unit,
+    onClearError: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
 
-    var emailInput by remember { mutableStateOf("") }
-    var participants by remember {
-        mutableStateOf(
-            listOf(
-                Participant("anna.s@example.com", "Анна Смирнова", "AC"),
-                Participant("sixseven@example.com", "Six Seven", "SS"),
-                Participant("bebra@example.com", "Bebra", "BB")
-            )
-        )
-    }
+    BackHandler(onBack = onBackClick)
 
-    // Системная кнопка "Назад"
-    BackHandler(onBack = { onBackClick() })
-
-    Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(coFlowTasksBackgroundBrush()),
+    ) {
         Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .padding(horizontal = CoFlowSpacing.ScreenHorizontal),
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = CoFlowSpacing.ScreenHorizontal),
         ) {
-            // Заголовок экрана
             CoFlowScreenHeader(
-                title = stringResource(R.string.add_participant_header), // "Добавить участника"
+                title = stringResource(R.string.add_participant_header),
                 onBackClick = {
                     focusManager.clearFocus()
                     onBackClick()
@@ -79,90 +79,97 @@ fun AddParticipantScreen(
 
             Spacer(Modifier.height(10.dp))
 
-            // Список приглашенных пользователей
+            // Список уже добавленных (но ещё не приглашённых) участников
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
             ) {
                 items(
-                    items = participants,
-                    key = { it.email },
+                    items = state.participants,
+                    key = { it.uid.ifBlank { it.email } },
                 ) { participant ->
-                    ParticipantItem(
+                    ProjectParticipantRow(
                         participant = participant,
-                        onRemove = {
-                            // Удаление из локального списка
-                            participants = participants.filter { it.email != participant.email }
-                        }
+                        onRemove = { onRemoveParticipantClick(participant) },
                     )
                 }
             }
 
-            // Нижняя панель: Поле ввода + кнопка "+" и Кнопка "Сохранить"
+            // Ошибка (из строкового ресурса или сырая)
+            val errorText = state.errorMessageResId?.let { stringResource(it) }
+                ?: state.errorMessage
+            if (errorText != null) {
+                Text(
+                    text = errorText,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                    fontSize = 12.sp,
+                    color = CoFlowColors.Error,
+                )
+                LaunchedEffect(errorText) { onClearError() }
+            }
+
+            // Нижняя панель: поле ввода + кнопка "+", кнопка "Сохранить"
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // Поле ввода и кнопка +
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     CoFlowGlassTextField(
-                        value = emailInput,
-                        onValueChange = { emailInput = it },
-                        placeholder = stringResource(R.string.enter_email_placeholder), // "Введите почту..."
+                        value = state.emailQuery,
+                        onValueChange = onEmailQueryChange,
+                        placeholder = stringResource(R.string.enter_email_placeholder),
                         leadingIcon = "search",
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Done
+                            imeAction = ImeAction.Done,
                         ),
                         keyboardActions = KeyboardActions(onDone = {
                             focusManager.clearFocus()
-                            // Логика добавления по Enter
-                            addParticipantLocally(emailInput, participants) { newEmail, newList ->
-                                emailInput = newEmail
-                                participants = newList
-                            }
+                            onAddParticipantClick()
                         }),
                     )
 
-                    // Кнопка "+"
                     Box(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(CoFlowColors.Blue)
-                            .clickable {
-                                // Логика добавления по кнопке
-                                addParticipantLocally(emailInput, participants) { newEmail, newList ->
-                                    emailInput = newEmail
-                                    participants = newList
-                                }
+                            .clickable(enabled = !state.isLoading) {
+                                onAddParticipantClick()
                             },
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = "Add participant",
-                            tint = Color.White
-                        )
+                        if (state.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = stringResource(R.string.add_participant_header),
+                                tint = Color.White,
+                            )
+                        }
                     }
                 }
 
-                // Кнопка подтверждения "Сохранить"
                 CoFlowPrimaryButton(
-                    text = stringResource(R.string.save_participant_button), // "Сохранить"
+                    text = stringResource(R.string.save_participant_button),
                     onClick = {
                         focusManager.clearFocus()
-                        onSaveClick(participants)
+                        onInviteClick()
                     },
-                    enabled = true,
+                    enabled = state.canInvite,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -170,54 +177,35 @@ fun AddParticipantScreen(
     }
 }
 
-// Вспомогательная функция для локального добавления (чтобы не дублировать код)
-private fun addParticipantLocally(
-    currentEmail: String,
-    currentList: List<Participant>,
-    onUpdate: (String, List<Participant>) -> Unit
-) {
-    val email = currentEmail.trim()
-    if (email.isNotEmpty() && android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-        if (currentList.none { it.email == email }) {
-            val newParticipant = Participant(email = email, name = "Новый участник")
-            onUpdate("", currentList + newParticipant) // Очищаем поле и добавляем участника
-        }
-    }
-}
-
 @Composable
-fun ParticipantItem(
-    participant: Participant,
-    onRemove: () -> Unit
+private fun ProjectParticipantRow(
+    participant: ProjectParticipantItem,
+    onRemove: () -> Unit,
 ) {
-    CoFlowGlassCard(
-        modifier = Modifier.height(64.dp)
-    ) {
+    CoFlowGlassCard(modifier = Modifier.height(64.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Левая часть: Аватар + Текст
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
-                // Кружок с инициалами
                 Box(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
                         .background(CoFlowColors.Blue),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = participant.initials,
                         color = Color.White,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                 }
 
@@ -228,40 +216,71 @@ fun ParticipantItem(
                         text = participant.email,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = CoFlowColors.TextPrimary
+                        color = CoFlowColors.TextPrimary,
                     )
                     Text(
                         text = participant.name,
                         fontSize = 12.sp,
-                        color = CoFlowColors.TextSecondary
+                        color = CoFlowColors.TextSecondary,
                     )
                 }
             }
 
-            // Правая часть: Кнопка удаления (красный минус)
             IconButton(onClick = onRemove) {
                 Icon(
                     imageVector = Icons.Rounded.RemoveCircle,
                     contentDescription = "Remove",
-                    tint = Color.Red.copy(alpha = 0.8f)
+                    tint = Color.Red.copy(alpha = 0.8f),
                 )
             }
         }
     }
 }
 
-@Preview(
-    name = "Добавление участника",
-    showBackground = true,
-    widthDp = 390,
-    heightDp = 844,
-)
 @Composable
-private fun AddParticipantScreenPreview() {
+fun AddParticipantRoute(
+    onBackClick: () -> Unit,
+    onInvited: (List<ProjectParticipantItem>) -> Unit,
+    viewModel: AddProjectParticipantViewModel = viewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state.isInvited) {
+        if (state.isInvited) {
+            onInvited(state.participants)
+        }
+    }
+
+    AddProjectParticipantScreen(
+        state = state,
+        onBackClick = onBackClick,
+        onEmailQueryChange = viewModel::onEmailQueryChange,
+        onAddParticipantClick = viewModel::onAddParticipantClick,
+        onRemoveParticipantClick = viewModel::onRemoveParticipant,
+        onInviteClick = viewModel::onInviteClick,
+        onClearError = viewModel::clearError,
+    )
+}
+
+@Preview(showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun AddProjectParticipantScreenPreview() {
     CoFlowTheme {
-        AddParticipantScreen(
+        AddProjectParticipantScreen(
+            state = AddProjectParticipantUiState(
+                emailQuery = "",
+                participants = listOf(
+                    ProjectParticipantItem("uid1", "anna.s@example.com", "Анна Смирнова", "АС"),
+                    ProjectParticipantItem("uid2", "sixseven@example.com", "Six Seven", "SS"),
+                ),
+                isInitialLoading = false,
+            ),
             onBackClick = {},
-            onSaveClick = {}
+            onEmailQueryChange = {},
+            onAddParticipantClick = {},
+            onRemoveParticipantClick = {},
+            onInviteClick = {},
+            onClearError = {},
         )
     }
 }
