@@ -3,7 +3,6 @@ package com.example.coflow.ui.projects
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,15 +18,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -217,6 +214,7 @@ private fun MemberRow(
     val isOwner = member.role == Role.OWNER
     var menuExpanded by remember { mutableStateOf(false) }
     var roleMenuExpanded by remember { mutableStateOf(false) }
+    var showRoleSelection by remember { mutableStateOf(false) }
 
     Row(
         modifier =
@@ -258,7 +256,7 @@ private fun MemberRow(
             )
         }
 
-        // Роль (теперь только информационная подпись)
+
         Text(
             text = getRoleText(member.role),
             color = if (isOwner) CoFlowColors.TextSecondary else CoFlowColors.Blue,
@@ -285,34 +283,75 @@ private fun MemberRow(
                 // Основное мини-меню: Сменить роль / Удалить
                 DropdownMenu(
                     expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
+                    onDismissRequest = { menuExpanded = false
+                        showRoleSelection = false },
+                    containerColor = CoFlowColors.White,
                 ) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = stringResource(R.string.change_role),
-                                color = CoFlowColors.TextPrimary,
-                                fontSize = 14.sp,
+                    if (!showRoleSelection) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = stringResource(R.string.change_role),
+                                    color = CoFlowColors.TextPrimary,
+                                    fontSize = 14.sp,
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                roleMenuExpanded = true
+                                showRoleSelection = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = stringResource(R.string.delete_member),
+                                    color = CoFlowColors.Error,
+                                    fontSize = 14.sp,
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onRemoveClick()
+                            },
+                        )
+                    } else // --- МЕНЮ ВЫБОРА РОЛИ ---
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "← Назад",
+                                    color = CoFlowColors.Blue,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            },
+                            onClick = {
+                                showRoleSelection = false // Возврат к главному меню
+                            },
+                        )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    Role.values()
+                        .filter { it != Role.OWNER }
+                        .forEach { role ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = getRoleText(role),
+                                        color = if (role == member.role) CoFlowColors.Blue else CoFlowColors.TextPrimary,
+                                        fontWeight = if (role == member.role) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontSize = 14.sp,
+                                    )
+                                },
+                                onClick = {
+                                    // FIX: Закрываем меню только после финального выбора
+                                    menuExpanded = false
+                                    showRoleSelection = false
+                                    onRoleChange(role)
+                                },
                             )
-                        },
-                        onClick = {
-                            menuExpanded = false
-                            roleMenuExpanded = true
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = stringResource(R.string.delete_member),
-                                color = CoFlowColors.Error,
-                                fontSize = 14.sp,
-                            )
-                        },
-                        onClick = {
-                            menuExpanded = false
-                            onRemoveClick()
-                        },
-                    )
+                        }
+                }
                 }
 
                 // Каскадное меню выбора новой роли
@@ -352,13 +391,12 @@ private fun MemberRow(
             }
         }
     }
-}
+
 
 @Composable
 private fun getRoleText(role: Role): String =
     when (role) {
         Role.OWNER -> stringResource(R.string.role_owner)
-        // Role.ADMIN -> "Администратор" // Раскомментируйте, если в вашем enum есть ADMIN
         else -> stringResource(R.string.role_member)
     }
 
