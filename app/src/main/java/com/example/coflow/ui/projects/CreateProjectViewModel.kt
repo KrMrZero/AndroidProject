@@ -13,6 +13,7 @@ import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.UserRepository
 import com.example.coflow.repositories.dto.MembershipAddDto
 import com.example.coflow.repositories.dto.ProjectAddDto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,9 +22,6 @@ import kotlinx.coroutines.launch
 
 /**
  * Участник, которого приглашают в проект.
- *
- * [initials] заполняются, только если пользователь с такой почтой уже
- * зарегистрирован. Для остальных аватарка остаётся дефолтной.
  */
 data class ProjectParticipant(
     val email: String,
@@ -32,9 +30,6 @@ data class ProjectParticipant(
 
 /**
  * Результат создания проекта.
- *
- * [unresolvedEmails] — адреса, для которых не удалось создать членство
- * (пользователь ещё не зарегистрирован или произошла ошибка записи).
  */
 data class CreateProjectResult(
     val projectId: String,
@@ -45,13 +40,10 @@ data class CreateProjectUiState(
     val title: String = "",
     val description: String = "",
     val participants: List<ProjectParticipant> = emptyList(),
-    // --- Диалог отмены приглашения ---
     val participantPendingRemoval: ProjectParticipant? = null,
-    // --- Статус отправки ---
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
 ) {
-    /** Кнопка «Создать проект» активна, когда заполнено название. */
     val canCreate: Boolean
         get() = title.isNotBlank() && !isSubmitting
 }
@@ -65,8 +57,6 @@ class CreateProjectViewModel(
     private val _state = MutableStateFlow(CreateProjectUiState())
     val state: StateFlow<CreateProjectUiState> = _state.asStateFlow()
 
-    // --- Основные поля формы ---
-
     fun onTitleChange(value: String) {
         _state.update { it.copy(title = value, errorMessage = null) }
     }
@@ -75,61 +65,19 @@ class CreateProjectViewModel(
         _state.update { it.copy(description = value.take(MAX_DESCRIPTION_LENGTH), errorMessage = null) }
     }
 
-    // --- Добавление участника ---
-
-    /**
-     * Заглушка: здесь позже будет открываться отдельное окно добавления участника.
-     *
-     * Окно передаст выбранную почту в [addParticipant], чтобы ViewModel
-     * проверила пользователя и подготовила инициалы для аватарки.
-     */
-    fun onAddParticipantClick() = Unit
-
-    /**
-     * Добавляет участника по почте.
-     *
-     * Если пользователь уже зарегистрирован, для него вычисляются инициалы.
-     * Если нет — участник остаётся с дефолтной аватаркой.
-     */
-    fun addParticipant(email: String) {
-        val normalizedEmail = email.trim()
-
-        if (!EMAIL_REGEX.matches(normalizedEmail)) return
-        if (_state.value.participants.any { it.email.equals(normalizedEmail, ignoreCase = true) }) return
-
-        viewModelScope.launch {
-            val user = userRepository.getByEmail(normalizedEmail).getOrNull()
-            val participant =
-                if (user != null && !user.isDeleted && user.uid.isNotBlank()) {
-                    ProjectParticipant(
-                        email = normalizedEmail,
-                        initials = getInitials(user.name.ifBlank { user.email.ifBlank { normalizedEmail } }),
-                    )
-                } else {
-                    ProjectParticipant(email = normalizedEmail)
-                }
-
-            _state.update { current ->
-                if (current.participants.any { it.email.equals(normalizedEmail, ignoreCase = true) }) {
-                    current
-                } else {
-                    current.copy(participants = current.participants + participant)
-                }
-            }
-        }
-    }
-
-    private fun getInitials(value: String): String {
-        val parts = value.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        return when {
-            parts.isEmpty() -> "?"
-            parts.size == 1 -> parts[0].take(2).uppercase()
-            else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
+    // Синхронизация списка участников из AddProjectParticipantViewModel
+    fun syncParticipants(items: List<ProjectParticipantItem>) {
+        _state.update { current ->
+            current.copy(
+                participants =
+                    items.map {
+                        ProjectParticipant(email = it.email, initials = it.initials)
+                    },
+            )
         }
     }
 
     // --- Отмена приглашения ---
-
     fun onRemoveParticipantClick(participant: ProjectParticipant) {
         _state.update { it.copy(participantPendingRemoval = participant) }
     }
@@ -139,20 +87,10 @@ class CreateProjectViewModel(
     }
 
     fun onConfirmRemoveParticipant() {
-        val participant = _state.value.participantPendingRemoval ?: return
-        _state.update {
-            it.copy(
-                participants =
-                    it.participants.filterNot { p ->
-                        p.email.equals(participant.email, ignoreCase = true)
-                    },
-                participantPendingRemoval = null,
-            )
-        }
+        _state.update { it.copy(participantPendingRemoval = null) }
     }
 
     // --- Создание проекта ---
-
     fun onCreateProject(onProjectCreated: (CreateProjectResult) -> Unit) {
         val current = _state.value
         val title = current.title.trim()
@@ -167,54 +105,58 @@ class CreateProjectViewModel(
         _state.update { it.copy(isSubmitting = true, errorMessage = null) }
 
         viewModelScope.launch {
-            val ownerId = authRepository.getCurrentUserUid()
-            if (ownerId.isNullOrBlank()) {
+            try {
+                val ownerId = authRepository.getCurrentUserUid()
+                if (ownerId.isNullOrBlank()) {
+                    _state.update {
+                        it.copy(
+                            isSubmitting = false,
+                            errorMessage = "Пользователь не авторизован",
+                        )
+                    }
+                    return@launch
+                }
+
+                projectRepository
+                    .addProject(
+                        ProjectAddDto(
+                            ownerId = ownerId,
+                            title = title,
+                            description = current.description.trim(),
+                        ),
+                    ).fold(
+                        onSuccess = { project ->
+                            val unresolvedEmails = addParticipants(project.id, current.participants)
+                            _state.update { it.copy(isSubmitting = false) }
+                            onProjectCreated(
+                                CreateProjectResult(
+                                    projectId = project.id,
+                                    unresolvedEmails = unresolvedEmails,
+                                ),
+                            )
+                        },
+                        onFailure = { error ->
+                            _state.update {
+                                it.copy(
+                                    isSubmitting = false,
+                                    errorMessage = error.message ?: "Ошибка создания проекта",
+                                )
+                            }
+                        },
+                    )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 _state.update {
                     it.copy(
                         isSubmitting = false,
-                        errorMessage = "Пользователь не авторизован",
+                        errorMessage = e.message ?: "Системная ошибка при создании проекта",
                     )
                 }
-                return@launch
             }
-
-            projectRepository
-                .addProject(
-                    ProjectAddDto(
-                        ownerId = ownerId,
-                        title = title,
-                        description = current.description.trim(),
-                    ),
-                ).fold(
-                    onSuccess = { project ->
-                        val unresolvedEmails = addParticipants(project.id, current.participants)
-                        _state.update { it.copy(isSubmitting = false) }
-                        onProjectCreated(
-                            CreateProjectResult(
-                                projectId = project.id,
-                                unresolvedEmails = unresolvedEmails,
-                            ),
-                        )
-                    },
-                    onFailure = { error ->
-                        _state.update {
-                            it.copy(
-                                isSubmitting = false,
-                                errorMessage = error.message ?: "Ошибка создания проекта",
-                            )
-                        }
-                    },
-                )
         }
     }
 
-    /**
-     * Создаёт членство для каждого приглашённого.
-     *
-     * Коллекции приглашений пока нет, поэтому членство можно сохранить только
-     * для уже зарегистрированных пользователей. Остальные адреса возвращаются,
-     * чтобы экран мог сообщить, кому приглашение не отправлено.
-     */
     private suspend fun addParticipants(
         projectId: String,
         participants: List<ProjectParticipant>,
@@ -222,23 +164,29 @@ class CreateProjectViewModel(
         val unresolved = mutableListOf<String>()
 
         participants.forEach { participant ->
-            val user = userRepository.getByEmail(participant.email).getOrNull()
+            try {
+                val user = userRepository.getByEmail(participant.email).getOrNull()
 
-            if (user == null || user.isDeleted || user.uid.isBlank()) {
-                unresolved += participant.email
-                return@forEach
-            }
-
-            membershipRepository
-                .addMember(
-                    MembershipAddDto(
-                        projectId = projectId,
-                        userId = user.uid,
-                        role = Role.MEMBER,
-                    ),
-                ).onFailure {
+                if (user == null || user.isDeleted || user.uid.isBlank()) {
                     unresolved += participant.email
+                    return@forEach
                 }
+
+                membershipRepository
+                    .addMember(
+                        MembershipAddDto(
+                            projectId = projectId,
+                            userId = user.uid,
+                            role = Role.MEMBER,
+                        ),
+                    ).onFailure {
+                        unresolved += participant.email
+                    }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                unresolved += participant.email
+            }
         }
 
         return unresolved
@@ -250,8 +198,6 @@ class CreateProjectViewModel(
 
     private companion object {
         const val MAX_DESCRIPTION_LENGTH = 250
-
-        val EMAIL_REGEX =
-            Regex("^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$")
+        // EMAIL_REGEX удален, так как он больше не используется в этом классе
     }
 }

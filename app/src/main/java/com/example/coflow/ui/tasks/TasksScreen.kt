@@ -230,38 +230,15 @@ fun TasksScreen(
                             selectedFilters = state.selectedFilters,
                             availableFilters = state.availableFilters,
                         )
-                        Spacer(Modifier.width(16.dp))
+//                        Spacer(Modifier.width(16.dp))
 
                         CoFlowFabButton(
                             onClick = onNavigateToCreateTask,
                             iconName = "task_plus",
                         )
                     }
-                    Spacer(Modifier.height(7.dp))
+                    //Spacer(Modifier.height(7.dp))
 
-                    CoFlowBottomNavigationBar(
-                        items =
-                            listOf(
-                                NavItem(
-                                    icon = "tasks",
-                                    title = stringResource(R.string.navigation_tasks),
-                                    selected = true,
-                                    onClick = onNavigateToProfile,
-                                ),
-                                NavItem(
-                                    icon = "folder",
-                                    title = stringResource(R.string.navigation_projects),
-                                    selected = false,
-                                    onClick = onNavigateToProjects,
-                                ),
-                                NavItem(
-                                    icon = "person",
-                                    title = stringResource(R.string.navigation_profile),
-                                    selected = false,
-                                    onClick = {},
-                                ),
-                            ),
-                    )
                 }
             }
         }
@@ -344,7 +321,7 @@ fun TasksScreen(
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 6.dp),
+                    .padding(top = 65.dp),
             snackbar = { data ->
                 Row(
                     modifier =
