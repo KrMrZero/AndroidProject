@@ -68,7 +68,9 @@ data class EditTaskUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val errorMessageResId: Int? = null,
-) : AssigneeSelectionState, DateSelectionState, ProjectSelectionState {
+) : AssigneeSelectionState,
+    DateSelectionState,
+    ProjectSelectionState {
     override val filteredAssignees: List<Assignee>
         get() =
             if (assigneeSearchQuery.isBlank()) {
@@ -76,7 +78,7 @@ data class EditTaskUiState(
             } else {
                 allAssignees.filter {
                     it.name.contains(assigneeSearchQuery, ignoreCase = true) ||
-                            it.email.contains(assigneeSearchQuery, ignoreCase = true)
+                        it.email.contains(assigneeSearchQuery, ignoreCase = true)
                 }
             }
 
@@ -191,7 +193,12 @@ class EditTaskViewModel(
                     canSave = task.title.isNotBlank() && formattedDate.isNotBlank(),
                     isLoading = false,
                     errorMessage = null,
-                    pendingAssigneeIds = task.assigneeId.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet(),
+                    pendingAssigneeIds =
+                        task.assigneeId
+                            .split(",")
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .toSet(),
                 )
             }
             loadAssignees(task.projectId)
@@ -210,13 +217,15 @@ class EditTaskViewModel(
                     userIds.add(currentUid)
                     val targetProjectId = projectId ?: loadedProjectId
                     val projectIds =
-                        if (targetProjectId.isNotBlank()) listOf(targetProjectId)
-                        else {
+                        if (targetProjectId.isNotBlank()) {
+                            listOf(targetProjectId)
+                        } else {
                             val memberships = membershipRepository.getByUserId(currentUid).getOrDefault(emptyList())
                             val ownerProjects = projectRepository.getByOwnerId(currentUid).getOrDefault(emptyList())
                             val userProjects = projectRepository.getByUserId(currentUid).getOrDefault(emptyList())
                             (memberships.map { it.projectId } + ownerProjects.map { it.id } + userProjects.map { it.id })
-                                .filter { it.isNotBlank() }.distinct()
+                                .filter { it.isNotBlank() }
+                                .distinct()
                         }
                     for (pId in projectIds) {
                         projectRepository.getById(pId).getOrNull()?.let { proj ->
@@ -232,8 +241,9 @@ class EditTaskViewModel(
                     val user = userRepository.getById(uid).getOrNull()
                     val isDeleted = user?.isDeleted ?: false
                     if (!isDeleted) {
-                        val displayName = user?.name?.ifBlank { user.email }
-                            ?: if (uid == currentUid) "Я" else "Пользователь (${uid.take(6)})"
+                        val displayName =
+                            user?.name?.ifBlank { user.email }
+                                ?: if (uid == currentUid) "Я" else "Пользователь (${uid.take(6)})"
                         assignees.add(
                             Assignee(
                                 id = uid,
@@ -241,7 +251,7 @@ class EditTaskViewModel(
                                 email = user?.email.orEmpty(),
                                 initials = getInitials(displayName),
                                 avatarColor = getAvatarColor(uid),
-                            )
+                            ),
                         )
                     }
                 }
@@ -283,9 +293,12 @@ class EditTaskViewModel(
 
     fun togglePendingAssignee(assigneeId: String) {
         _state.update { current ->
-            val pending = if (assigneeId in current.pendingAssigneeIds)
-                current.pendingAssigneeIds - assigneeId
-            else current.pendingAssigneeIds + assigneeId
+            val pending =
+                if (assigneeId in current.pendingAssigneeIds) {
+                    current.pendingAssigneeIds - assigneeId
+                } else {
+                    current.pendingAssigneeIds + assigneeId
+                }
             current.copy(pendingAssigneeIds = pending)
         }
     }
@@ -331,17 +344,20 @@ class EditTaskViewModel(
                 if (uid.isBlank()) return@launch
                 val userProjects = projectRepository.getByUserId(uid).getOrDefault(emptyList())
                 val ownerProjects = projectRepository.getByOwnerId(uid).getOrDefault(emptyList())
-                val items = (userProjects + ownerProjects)
-                    .distinctBy { it.id }
-                    .filterNot { it.isDeleted }
-                    .map { ProjectItem(id = it.id, title = it.title) }
+                val items =
+                    (userProjects + ownerProjects)
+                        .distinctBy { it.id }
+                        .filterNot { it.isDeleted }
+                        .map { ProjectItem(id = it.id, title = it.title) }
                 _state.update {
                     it.copy(
                         allProjectItems = items,
                         allProjects = items.map { p -> p.title }.distinct(),
                     )
                 }
-            } catch (_: Exception) { /* можно логировать */ }
+            } catch (_: Exception) {
+                // можно логировать
+            }
         }
     }
 
@@ -410,7 +426,7 @@ class EditTaskViewModel(
                     // нужно дополнить для исполнителей, проекта и даты
                     assigneeId = current.pendingAssigneeIds.joinToString(","),
                     deadline = LocalDateTime.of(current.selectedDueDate, LocalTime.MIDNIGHT),
-                    projectId =current.selectedProjectId.ifBlank { null },
+                    projectId = current.selectedProjectId.ifBlank { null },
                 )
 
             val result = taskRepository.updateTask(current.taskId, updateDto)
