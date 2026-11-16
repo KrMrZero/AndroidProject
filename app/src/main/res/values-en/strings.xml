@@ -219,7 +219,7 @@
     <string name="project_description_label">Description</string>
     <string name="project_owner_label">Owner</string>
     <string name="participants_header">Participants</string>
-    <string name="search_participants_placeholder">Search...</string>
+    <string name="search_participants_placeholder">Name or email</string>
     <string name="participants_placeholder">No participants yet</string>
 
     <!-- Project statuses -->

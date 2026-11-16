@@ -231,7 +231,7 @@
     <string name="project_description_label">Описание</string>
     <string name="project_owner_label">Владелец</string>
     <string name="participants_header">Участники</string>
-    <string name="search_participants_placeholder">Поиск...</string>
+    <string name="search_participants_placeholder">Имя или почта</string>
     <string name="participants_placeholder">Пока нет участников</string>
 
     <!-- Статусы проектов -->
