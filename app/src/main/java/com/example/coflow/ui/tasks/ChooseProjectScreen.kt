@@ -27,7 +27,7 @@ import com.example.coflow.ui.theme.*
 
 @Composable
 fun ChooseProjectScreen(
-    state: CreateTaskUiState,
+    state: ProjectSelectionState,
     onBackClick: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onSelectProject: (String) -> Unit,
@@ -139,21 +139,31 @@ fun ChooseProjectScreen(
 
 @Composable
 fun ChooseProjectRoute(
+    state: ProjectSelectionState,
     onBackClick: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onSelectProject: (String) -> Unit,
     onConfirmSelection: (String) -> Unit,
     viewModel: CreateTaskViewModel = viewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-
+//    val state by viewModel.state.collectAsStateWithLifecycle()
+//
+//    ChooseProjectScreen(
+//        state = state,
+//        onBackClick = onBackClick,
+//        onSearchQueryChange = viewModel::onProjectSearchQueryChange,
+//        onSelectProject = viewModel::onPendingProjectChange,
+//        onConfirmSelection = { project ->
+//            viewModel.confirmProjectSelection(project)
+//            onConfirmSelection(project)
+//        },
+//    )
     ChooseProjectScreen(
         state = state,
         onBackClick = onBackClick,
-        onSearchQueryChange = viewModel::onProjectSearchQueryChange,
-        onSelectProject = viewModel::onPendingProjectChange,
-        onConfirmSelection = { project ->
-            viewModel.confirmProjectSelection(project)
-            onConfirmSelection(project)
-        },
+        onSearchQueryChange = onSearchQueryChange,
+        onSelectProject = onSelectProject,
+        onConfirmSelection = onConfirmSelection,
     )
 }
 
