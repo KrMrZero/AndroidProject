@@ -1,22 +1,34 @@
 package com.example.coflow.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,7 +92,6 @@ fun CoFlowScreenHeader(
             }
         }
 
-        // Правая часть (колокольчик или что-то еще)
         if (trailingContent != null) {
             trailingContent()
         }
@@ -99,11 +110,12 @@ fun CoFlowBottomNavigationBar(
     items: List<NavItem>,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    val selectedIndex = items.indexOfFirst { it.selected }.coerceAtLeast(0)
+    Box(
         modifier =
             modifier
                 .fillMaxWidth()
-                .widthIn(max = 278.dp)
+                .widthIn(max = 230.dp)
                 .background(
                     brush =
                         Brush.verticalGradient(
@@ -114,35 +126,72 @@ fun CoFlowBottomNavigationBar(
                                 ),
                         ),
                     shape = CoFlowGlassStyles.NavigationShape,
-                ).border(1.dp, CoFlowGlassStyles.Border.copy(alpha = 0.68f), CoFlowGlassStyles.NavigationShape)
-                .padding(3.dp),
-        verticalAlignment = Alignment.CenterVertically,
+                ).border(
+                    1.dp,
+                    CoFlowGlassStyles.Border.copy(alpha = 0.68f),
+                    CoFlowGlassStyles.NavigationShape,
+                ).padding(3.dp),
     ) {
-        items.forEach { item ->
-            Column(
+        BoxWithConstraints(Modifier.fillMaxWidth().height(72.dp)) {
+            val itemWidth = maxWidth / items.size
+
+            val indicatorOffset by animateDpAsState(
+                targetValue = itemWidth * selectedIndex,
+                animationSpec =
+                    tween(
+                        durationMillis = 300,
+                        easing = FastOutSlowInEasing,
+                    ),
+                label = "indicatorOffset",
+            )
+
+            Box(
                 modifier =
                     Modifier
-                        .weight(1f)
-                        .background(
-                            if (item.selected) CoFlowColors.Blue else Color.Transparent,
-                            shape = CoFlowGlassStyles.SelectedItemShape,
-                        ).clickable { item.onClick() }
-                        .padding(vertical = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                CoFlowIcon(
-                    name = item.icon,
-                    modifier = Modifier.size(18.dp),
-                    color = if (item.selected) Color.White else CoFlowColors.TextPrimary,
-                )
-                Spacer(Modifier.height(1.dp))
-                Text(
-                    text = item.title,
-                    fontSize = 10.sp,
-                    color = if (item.selected) Color.White else CoFlowColors.TextPrimary,
-                    maxLines = 1,
-                )
+                        .offset(x = indicatorOffset)
+                        .width(itemWidth)
+                        .fillMaxHeight()
+                        .padding(3.dp)
+                        .background(CoFlowColors.Blue, CoFlowGlassStyles.SelectedItemShape),
+            )
+
+            Row(Modifier.fillMaxSize()) {
+                items.forEachIndexed { index, item ->
+                    val isSelected = index == selectedIndex
+
+                    val contentColor by animateColorAsState(
+                        targetValue = if (isSelected) Color.White else CoFlowColors.TextPrimary,
+                        animationSpec = tween(300),
+                        label = "tabColor_$index",
+                    )
+
+                    Column(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { item.onClick() }
+                                .padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        CoFlowIcon(
+                            name = item.icon,
+                            modifier = Modifier.size(18.dp),
+                            color = contentColor,
+                        )
+                        Spacer(Modifier.height(1.dp))
+                        Text(
+                            text = item.title,
+                            fontSize = 10.sp,
+                            color = contentColor,
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
         }
     }
