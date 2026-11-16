@@ -39,209 +39,211 @@ data class AddProjectParticipantUiState(
         get() = participants.isNotEmpty() && !isSubmitting && !isLoading && !isInitialLoading
 }
 
-class AddProjectParticipantViewModel @JvmOverloads constructor( // <-- FIX: Добавлен @JvmOverloads
-    savedStateHandle: SavedStateHandle,
-    private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
-    private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
-    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
-) : ViewModel() {
-    private val projectId: String = savedStateHandle.get<String>("projectId").orEmpty()
+class AddProjectParticipantViewModel
+    @JvmOverloads
+    constructor( // <-- FIX: Добавлен @JvmOverloads
+        savedStateHandle: SavedStateHandle,
+        private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
+        private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
+        private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    ) : ViewModel() {
+        private val projectId: String = savedStateHandle.get<String>("projectId").orEmpty()
 
-    private val _state = MutableStateFlow(AddProjectParticipantUiState())
-    val state: StateFlow<AddProjectParticipantUiState> = _state.asStateFlow()
+        private val _state = MutableStateFlow(AddProjectParticipantUiState())
+        val state: StateFlow<AddProjectParticipantUiState> = _state.asStateFlow()
 
-    private var existingMemberUserIds: Set<String> = emptySet()
+        private var existingMemberUserIds: Set<String> = emptySet()
 
-    init {
-        if (projectId.isBlank()) {
-            _state.update { it.copy(isInitialLoading = false) }
-        } else {
-            loadExistingMembers()
+        init {
+            if (projectId.isBlank()) {
+                _state.update { it.copy(isInitialLoading = false) }
+            } else {
+                loadExistingMembers()
+            }
         }
-    }
 
-    private fun loadExistingMembers() {
-        viewModelScope.launch {
-            _state.update { it.copy(isInitialLoading = true) }
-            try {
-                val result = membershipRepository.getByProjectId(projectId)
-                result.fold(
-                    onSuccess = { memberships ->
-                        existingMemberUserIds = memberships.map { it.userId }.toSet()
-                        _state.update { it.copy(isInitialLoading = false) }
-                    },
-                    onFailure = {
+        private fun loadExistingMembers() {
+            viewModelScope.launch {
+                _state.update { it.copy(isInitialLoading = true) }
+                try {
+                    val result = membershipRepository.getByProjectId(projectId)
+                    result.fold(
+                        onSuccess = { memberships ->
+                            existingMemberUserIds = memberships.map { it.userId }.toSet()
+                            _state.update { it.copy(isInitialLoading = false) }
+                        },
+                        onFailure = {
+                            _state.update {
+                                it.copy(
+                                    isInitialLoading = false,
+                                    errorMessage = null,
+                                    errorMessageResId = R.string.error_system,
+                                )
+                            }
+                        },
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _state.update {
+                        it.copy(
+                            isInitialLoading = false,
+                            errorMessage = null,
+                            errorMessageResId = R.string.error_system,
+                        )
+                    }
+                }
+            }
+        }
+
+        fun onEmailQueryChange(query: String) {
+            _state.update { it.copy(emailQuery = query, errorMessage = null, errorMessageResId = null) }
+        }
+
+        fun onAddParticipantClick() {
+            val currentState = _state.value
+            if (currentState.isInitialLoading || currentState.isLoading) return
+
+            val currentQuery = currentState.emailQuery.trim()
+            if (currentQuery.isBlank()) return
+
+            if (!EMAIL_REGEX.matches(currentQuery)) {
+                _state.update {
+                    it.copy(
+                        errorMessage = null,
+                        errorMessageResId = R.string.error_invalid_email_format,
+                    )
+                }
+                return
+            }
+
+            if (currentState.participants.any { it.email.equals(currentQuery, ignoreCase = true) }) {
+                _state.update {
+                    it.copy(
+                        errorMessage = null,
+                        errorMessageResId = R.string.error_participant_already_in_list,
+                    )
+                }
+                return
+            }
+
+            viewModelScope.launch {
+                _state.update { it.copy(isLoading = true, errorMessage = null, errorMessageResId = null) }
+                try {
+                    val currentUid = authRepository.getCurrentUserUid().orEmpty()
+
+                    val userResult = userRepository.getByEmail(currentQuery)
+                    if (userResult.isFailure) {
                         _state.update {
                             it.copy(
-                                isInitialLoading = false,
                                 errorMessage = null,
                                 errorMessageResId = R.string.error_system,
                             )
                         }
-                    },
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        isInitialLoading = false,
-                        errorMessage = null,
-                        errorMessageResId = R.string.error_system,
-                    )
-                }
-            }
-        }
-    }
+                        return@launch
+                    }
 
-    fun onEmailQueryChange(query: String) {
-        _state.update { it.copy(emailQuery = query, errorMessage = null, errorMessageResId = null) }
-    }
+                    val user = userResult.getOrNull()
+                    if (user == null || user.isDeleted || user.uid.isBlank()) {
+                        _state.update {
+                            it.copy(
+                                errorMessage = null,
+                                errorMessageResId = R.string.error_user_not_found,
+                            )
+                        }
+                        return@launch
+                    }
 
-    fun onAddParticipantClick() {
-        val currentState = _state.value
-        if (currentState.isInitialLoading || currentState.isLoading) return
+                    if (user.uid == currentUid) {
+                        _state.update {
+                            it.copy(
+                                errorMessage = null,
+                                errorMessageResId = R.string.error_already_project_member_self,
+                            )
+                        }
+                        return@launch
+                    }
 
-        val currentQuery = currentState.emailQuery.trim()
-        if (currentQuery.isBlank()) return
+                    if (existingMemberUserIds.contains(user.uid)) {
+                        _state.update {
+                            it.copy(
+                                errorMessage = null,
+                                errorMessageResId = R.string.error_already_project_member,
+                            )
+                        }
+                        return@launch
+                    }
 
-        if (!EMAIL_REGEX.matches(currentQuery)) {
-            _state.update {
-                it.copy(
-                    errorMessage = null,
-                    errorMessageResId = R.string.error_invalid_email_format,
-                )
-            }
-            return
-        }
+                    val participantName = user.name.ifBlank { user.email.ifBlank { currentQuery } }
+                    val initials = getInitials(participantName)
 
-        if (currentState.participants.any { it.email.equals(currentQuery, ignoreCase = true) }) {
-            _state.update {
-                it.copy(
-                    errorMessage = null,
-                    errorMessageResId = R.string.error_participant_already_in_list,
-                )
-            }
-            return
-        }
+                    val newParticipant =
+                        ProjectParticipantItem(
+                            uid = user.uid,
+                            email = user.email.ifBlank { currentQuery },
+                            name = participantName,
+                            initials = initials,
+                        )
 
-        viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null, errorMessageResId = null) }
-            try {
-                val currentUid = authRepository.getCurrentUserUid().orEmpty()
-
-                val userResult = userRepository.getByEmail(currentQuery)
-                if (userResult.isFailure) {
+                    _state.update { state ->
+                        state.copy(
+                            participants = state.participants + newParticipant,
+                            emailQuery = "",
+                            errorMessage = null,
+                            errorMessageResId = null,
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
                     _state.update {
                         it.copy(
                             errorMessage = null,
                             errorMessageResId = R.string.error_system,
                         )
                     }
-                    return@launch
+                } finally {
+                    _state.update { it.copy(isLoading = false) }
                 }
-
-                val user = userResult.getOrNull()
-                if (user == null || user.isDeleted || user.uid.isBlank()) {
-                    _state.update {
-                        it.copy(
-                            errorMessage = null,
-                            errorMessageResId = R.string.error_user_not_found,
-                        )
-                    }
-                    return@launch
-                }
-
-                if (user.uid == currentUid) {
-                    _state.update {
-                        it.copy(
-                            errorMessage = null,
-                            errorMessageResId = R.string.error_already_project_member_self,
-                        )
-                    }
-                    return@launch
-                }
-
-                if (existingMemberUserIds.contains(user.uid)) {
-                    _state.update {
-                        it.copy(
-                            errorMessage = null,
-                            errorMessageResId = R.string.error_already_project_member,
-                        )
-                    }
-                    return@launch
-                }
-
-                val participantName = user.name.ifBlank { user.email.ifBlank { currentQuery } }
-                val initials = getInitials(participantName)
-
-                val newParticipant =
-                    ProjectParticipantItem(
-                        uid = user.uid,
-                        email = user.email.ifBlank { currentQuery },
-                        name = participantName,
-                        initials = initials,
-                    )
-
-                _state.update { state ->
-                    state.copy(
-                        participants = state.participants + newParticipant,
-                        emailQuery = "",
-                        errorMessage = null,
-                        errorMessageResId = null,
-                    )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        errorMessage = null,
-                        errorMessageResId = R.string.error_system,
-                    )
-                }
-            } finally {
-                _state.update { it.copy(isLoading = false) }
             }
         }
-    }
 
-    fun onRemoveParticipant(participant: ProjectParticipantItem) {
-        _state.update { state ->
-            state.copy(
-                participants =
-                    state.participants.filterNot {
-                        it.uid == participant.uid || it.email.equals(participant.email, ignoreCase = true)
-                    },
-            )
+        fun onRemoveParticipant(participant: ProjectParticipantItem) {
+            _state.update { state ->
+                state.copy(
+                    participants =
+                        state.participants.filterNot {
+                            it.uid == participant.uid || it.email.equals(participant.email, ignoreCase = true)
+                        },
+                )
+            }
+        }
+
+        fun onInviteClick() {
+            val currentParticipants = _state.value.participants
+            if (currentParticipants.isEmpty() || _state.value.isSubmitting) return
+
+            _state.update { it.copy(isInvited = true) }
+        }
+
+        fun onInvitedHandled() {
+            _state.update { it.copy(isInvited = false) }
+        }
+
+        fun clearError() {
+            _state.update { it.copy(errorMessage = null, errorMessageResId = null) }
+        }
+
+        private fun getInitials(value: String): String {
+            val parts = value.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+            return when {
+                parts.isEmpty() -> "?"
+                parts.size == 1 -> parts[0].take(2).uppercase()
+                else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
+            }
+        }
+
+        private companion object {
+            val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$")
         }
     }
-
-    fun onInviteClick() {
-        val currentParticipants = _state.value.participants
-        if (currentParticipants.isEmpty() || _state.value.isSubmitting) return
-
-        _state.update { it.copy(isInvited = true) }
-    }
-
-    fun onInvitedHandled() {
-        _state.update { it.copy(isInvited = false) }
-    }
-
-    fun clearError() {
-        _state.update { it.copy(errorMessage = null, errorMessageResId = null) }
-    }
-
-    private fun getInitials(value: String): String {
-        val parts = value.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        return when {
-            parts.isEmpty() -> "?"
-            parts.size == 1 -> parts[0].take(2).uppercase()
-            else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
-        }
-    }
-
-    private companion object {
-        val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$")
-    }
-}

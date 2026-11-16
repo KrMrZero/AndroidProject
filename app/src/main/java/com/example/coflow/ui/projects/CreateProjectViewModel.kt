@@ -69,9 +69,10 @@ class CreateProjectViewModel(
     fun syncParticipants(items: List<ProjectParticipantItem>) {
         _state.update { current ->
             current.copy(
-                participants = items.map {
-                    ProjectParticipant(email = it.email, initials = it.initials)
-                },
+                participants =
+                    items.map {
+                        ProjectParticipant(email = it.email, initials = it.initials)
+                    },
             )
         }
     }
@@ -116,32 +117,33 @@ class CreateProjectViewModel(
                     return@launch
                 }
 
-                projectRepository.addProject(
-                    ProjectAddDto(
-                        ownerId = ownerId,
-                        title = title,
-                        description = current.description.trim(),
-                    ),
-                ).fold(
-                    onSuccess = { project ->
-                        val unresolvedEmails = addParticipants(project.id, current.participants)
-                        _state.update { it.copy(isSubmitting = false) }
-                        onProjectCreated(
-                            CreateProjectResult(
-                                projectId = project.id,
-                                unresolvedEmails = unresolvedEmails,
-                            ),
-                        )
-                    },
-                    onFailure = { error ->
-                        _state.update {
-                            it.copy(
-                                isSubmitting = false,
-                                errorMessage = error.message ?: "Ошибка создания проекта",
+                projectRepository
+                    .addProject(
+                        ProjectAddDto(
+                            ownerId = ownerId,
+                            title = title,
+                            description = current.description.trim(),
+                        ),
+                    ).fold(
+                        onSuccess = { project ->
+                            val unresolvedEmails = addParticipants(project.id, current.participants)
+                            _state.update { it.copy(isSubmitting = false) }
+                            onProjectCreated(
+                                CreateProjectResult(
+                                    projectId = project.id,
+                                    unresolvedEmails = unresolvedEmails,
+                                ),
                             )
-                        }
-                    },
-                )
+                        },
+                        onFailure = { error ->
+                            _state.update {
+                                it.copy(
+                                    isSubmitting = false,
+                                    errorMessage = error.message ?: "Ошибка создания проекта",
+                                )
+                            }
+                        },
+                    )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -170,15 +172,16 @@ class CreateProjectViewModel(
                     return@forEach
                 }
 
-                membershipRepository.addMember(
-                    MembershipAddDto(
-                        projectId = projectId,
-                        userId = user.uid,
-                        role = Role.MEMBER,
-                    ),
-                ).onFailure {
-                    unresolved += participant.email
-                }
+                membershipRepository
+                    .addMember(
+                        MembershipAddDto(
+                            projectId = projectId,
+                            userId = user.uid,
+                            role = Role.MEMBER,
+                        ),
+                    ).onFailure {
+                        unresolved += participant.email
+                    }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

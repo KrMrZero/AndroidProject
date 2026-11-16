@@ -58,16 +58,18 @@ fun AddProjectParticipantScreen(
     BackHandler(onBack = onBackClick)
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(coFlowTasksBackgroundBrush()),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(coFlowTasksBackgroundBrush()),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = CoFlowSpacing.ScreenHorizontal),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = CoFlowSpacing.ScreenHorizontal),
         ) {
             CoFlowScreenHeader(
                 title = stringResource(R.string.add_participant_header),
@@ -97,8 +99,9 @@ fun AddProjectParticipantScreen(
             }
 
             // Ошибка (из строкового ресурса или сырая)
-            val errorText = state.errorMessageResId?.let { stringResource(it) }
-                ?: state.errorMessage
+            val errorText =
+                state.errorMessageResId?.let { stringResource(it) }
+                    ?: state.errorMessage
             if (errorText != null) {
                 Text(
                     text = errorText,
@@ -111,9 +114,10 @@ fun AddProjectParticipantScreen(
 
             // Нижняя панель: поле ввода + кнопка "+", кнопка "Сохранить"
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(
@@ -127,24 +131,27 @@ fun AddProjectParticipantScreen(
                         placeholder = stringResource(R.string.enter_email_placeholder),
                         leadingIcon = "search",
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Done,
-                        ),
-                        keyboardActions = KeyboardActions(onDone = {
-                            focusManager.clearFocus()
-                            onAddParticipantClick()
-                        }),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Done,
+                            ),
+                        keyboardActions =
+                            KeyboardActions(onDone = {
+                                focusManager.clearFocus()
+                                onAddParticipantClick()
+                            }),
                     )
 
                     Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(CoFlowColors.Blue)
-                            .clickable(enabled = !state.isLoading) {
-                                onAddParticipantClick()
-                            },
+                        modifier =
+                            Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(CoFlowColors.Blue)
+                                .clickable(enabled = !state.isLoading) {
+                                    onAddParticipantClick()
+                                },
                         contentAlignment = Alignment.Center,
                     ) {
                         if (state.isLoading) {
@@ -184,9 +191,10 @@ private fun ProjectParticipantRow(
 ) {
     CoFlowGlassCard(modifier = Modifier.height(64.dp)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -195,10 +203,11 @@ private fun ProjectParticipantRow(
                 modifier = Modifier.weight(1f),
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(CoFlowColors.Blue),
+                    modifier =
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(CoFlowColors.Blue),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -270,14 +279,16 @@ fun AddParticipantRoute(
 private fun AddProjectParticipantScreenPreview() {
     CoFlowTheme {
         AddProjectParticipantScreen(
-            state = AddProjectParticipantUiState(
-                emailQuery = "",
-                participants = listOf(
-                    ProjectParticipantItem("uid1", "anna.s@example.com", "Анна Смирнова", "АС"),
-                    ProjectParticipantItem("uid2", "sixseven@example.com", "Six Seven", "SS"),
+            state =
+                AddProjectParticipantUiState(
+                    emailQuery = "",
+                    participants =
+                        listOf(
+                            ProjectParticipantItem("uid1", "anna.s@example.com", "Анна Смирнова", "АС"),
+                            ProjectParticipantItem("uid2", "sixseven@example.com", "Six Seven", "SS"),
+                        ),
+                    isInitialLoading = false,
                 ),
-                isInitialLoading = false,
-            ),
             onBackClick = {},
             onEmailQueryChange = {},
             onAddParticipantClick = {},

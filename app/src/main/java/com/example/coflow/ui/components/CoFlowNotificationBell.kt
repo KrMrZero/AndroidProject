@@ -30,14 +30,15 @@ fun NotificationBell() {
             onClick = {
                 dialogTitle = notificationTitle
                 dialogMessage = notificationMessage
-            }
+            },
         )
         Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 3.dp, end = 3.dp)
-                .size(6.dp)
-                .background(CoFlowColors.Blue, CircleShape)
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 3.dp, end = 3.dp)
+                    .size(6.dp)
+                    .background(CoFlowColors.Blue, CircleShape),
         )
     }
 
@@ -52,9 +53,7 @@ fun NotificationBell() {
                     Text(dialogOkText, color = CoFlowColors.Blue)
                 }
             },
-            containerColor = Color(0xFFF4F7FF)
+            containerColor = Color(0xFFF4F7FF),
         )
     }
-
-
 }
