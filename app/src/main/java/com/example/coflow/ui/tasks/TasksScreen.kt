@@ -338,20 +338,19 @@ fun TasksScreen(
             )
         }
 
+
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier =
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 6.dp),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 65.dp),
             snackbar = { data ->
                 Row(
-                    modifier =
-                        Modifier
-                            .widthIn(max = 240.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(snackbarColor)
-                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                    modifier = Modifier
+                        .widthIn(max = 240.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(snackbarColor)
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                 ) {
