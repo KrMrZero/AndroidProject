@@ -45,8 +45,6 @@ import com.example.coflow.ui.theme.CoFlowColors
 import com.example.coflow.ui.theme.CoFlowSpacing
 import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
 
-
-
 @Composable
 fun EditTaskScreen(
     state: EditTaskUiState,
@@ -66,15 +64,20 @@ fun EditTaskScreen(
 
     // TODO: Обработку ошибок (загрузка, сохранение, удаление) сейчас ошибки отображаются
 // в AlertDialog, кнопка «ОК» возвращает на предыдущий экран, надо?
-    val errorText = when {
-        state.errorMessageResId != null && state.errorMessage != null ->
-            stringResource(state.errorMessageResId, state.errorMessage)
+    val errorText =
+        when {
+            state.errorMessageResId != null && state.errorMessage != null -> {
+                stringResource(state.errorMessageResId, state.errorMessage)
+            }
 
-        state.errorMessageResId != null ->
-            stringResource(state.errorMessageResId)
+            state.errorMessageResId != null -> {
+                stringResource(state.errorMessageResId)
+            }
 
-        else -> state.errorMessage
-    }
+            else -> {
+                state.errorMessage
+            }
+        }
 
     if (errorText != null) {
         AlertDialog(

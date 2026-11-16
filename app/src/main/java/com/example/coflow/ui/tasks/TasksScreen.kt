@@ -268,13 +268,14 @@ fun TasksScreen(
         pendingTask?.let { task ->
             val isTakingTask = task.status == TaskStatus.TODO
 
-            val snackbarMessage = stringResource(
-                if (isTakingTask) {
-                    R.string.task_action_taken
-                } else {
-                    R.string.task_action_completed
-                }
-            )
+            val snackbarMessage =
+                stringResource(
+                    if (isTakingTask) {
+                        R.string.task_action_taken
+                    } else {
+                        R.string.task_action_completed
+                    },
+                )
 
             AlertDialog(
                 onDismissRequest = { pendingTask = null },
@@ -285,8 +286,8 @@ fun TasksScreen(
                                 R.string.task_action_confirm_take
                             } else {
                                 R.string.task_action_confirm_complete
-                            }
-                        )
+                            },
+                        ),
                     )
                 },
                 text = {
@@ -297,8 +298,8 @@ fun TasksScreen(
                             } else {
                                 R.string.task_action_message_complete
                             },
-                            task.title
-                        )
+                            task.title,
+                        ),
                     )
                 },
                 confirmButton = {
@@ -307,17 +308,17 @@ fun TasksScreen(
                             pendingTask = null
                             onTaskSwipe(task)
 
-
-                            snackbarColor = if (isTakingTask) {
-                                CoFlowColors.Blue
-                            } else {
-                                CoFlowColors.Green
-                            }
+                            snackbarColor =
+                                if (isTakingTask) {
+                                    CoFlowColors.Blue
+                                } else {
+                                    CoFlowColors.Green
+                                }
 
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar(snackbarMessage)
                             }
-                        }
+                        },
                     ) {
                         Text(
                             stringResource(
@@ -325,8 +326,8 @@ fun TasksScreen(
                                     R.string.task_action_button_take
                                 } else {
                                     R.string.task_action_button_complete
-                                }
-                            )
+                                },
+                            ),
                         )
                     }
                 },
@@ -334,23 +335,24 @@ fun TasksScreen(
                     TextButton(onClick = { pendingTask = null }) {
                         Text(stringResource(R.string.task_action_button_cancel))
                     }
-                }
+                },
             )
         }
 
-
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 65.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 65.dp),
             snackbar = { data ->
                 Row(
-                    modifier = Modifier
-                        .widthIn(max = 240.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(snackbarColor)
-                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    modifier =
+                        Modifier
+                            .widthIn(max = 240.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(snackbarColor)
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                 ) {
@@ -823,29 +825,31 @@ private fun GlassGroupingOption(
                 .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-
         Box(
-            modifier = Modifier
-                .size(10.dp)
-                .then(
-                    if (selected) {
-                        Modifier.background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    CoFlowColors.BlueLight,
-                                    CoFlowColors.Blue
-                                )
-                            ),
-                            shape = RoundedCornerShape(50)
-                        )
-                    } else {
-                        Modifier.border(
-                            width = 1.2.dp,
-                            color = CoFlowGlassStyles.BlueBorder,
-                            shape = RoundedCornerShape(50)
-                        )
-                    }
-                )
+            modifier =
+                Modifier
+                    .size(10.dp)
+                    .then(
+                        if (selected) {
+                            Modifier.background(
+                                brush =
+                                    Brush.linearGradient(
+                                        colors =
+                                            listOf(
+                                                CoFlowColors.BlueLight,
+                                                CoFlowColors.Blue,
+                                            ),
+                                    ),
+                                shape = RoundedCornerShape(50),
+                            )
+                        } else {
+                            Modifier.border(
+                                width = 1.2.dp,
+                                color = CoFlowGlassStyles.BlueBorder,
+                                shape = RoundedCornerShape(50),
+                            )
+                        },
+                    ),
         )
         Spacer(Modifier.width(9.dp))
         Text(text = title, fontSize = 13.sp, color = CoFlowColors.TextPrimary, maxLines = 1)
