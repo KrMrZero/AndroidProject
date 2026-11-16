@@ -297,6 +297,12 @@ fun CoFlowIcon(
                     StrokeCap.Round,
                 )
             }
+
+            "info" -> {
+                drawCircle(color, radius = 9f * s, center = point(12f, 12f), style = stroke)
+                drawCircle(color, radius = 1.2f * s, center = point(12f, 8f))
+                drawLine(color, point(12f, 11f), point(12f, 16f), 2f * s, StrokeCap.Round)
+            }
         }
     }
 }
