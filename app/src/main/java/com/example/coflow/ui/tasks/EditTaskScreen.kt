@@ -44,9 +44,7 @@ import com.example.coflow.ui.components.CoFlowScreenHeader
 import com.example.coflow.ui.theme.CoFlowColors
 import com.example.coflow.ui.theme.CoFlowSpacing
 import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.Alignment
-import com.example.coflow.ui.theme.CoFlowColors
+
 
 
 @Composable
