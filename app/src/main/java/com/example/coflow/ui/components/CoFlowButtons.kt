@@ -4,10 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,22 +36,30 @@ fun CoFlowPrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    height: Dp = 52.dp // Единственный параметр, который варьировался (48 или 52)
+    height: Dp = 52.dp, // Единственный параметр, который варьировался (48 или 52)
+    leadingIcon: String? = null,
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.fillMaxWidth().height(height),
         shape = CoFlowShapes.Button,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = CoFlowColors.Blue,
-            contentColor = Color.White,
-            disabledContainerColor = CoFlowColors.Blue.copy(alpha = 0.45f),
-            disabledContentColor = Color.White
-        ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 1.dp, disabledElevation = 0.dp)
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = CoFlowColors.Blue,
+                contentColor = Color.White,
+                disabledContainerColor = CoFlowColors.Blue.copy(alpha = 0.45f),
+                disabledContentColor = Color.White,
+            ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 1.dp, disabledElevation = 0.dp),
     ) {
-        Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (leadingIcon != null) {
+                CoFlowIcon(name = leadingIcon, modifier = Modifier.size(18.dp), color = Color.White)
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -57,16 +68,21 @@ fun CoFlowPrimaryButton(
 fun CoFlowFabButton(
     onClick: () -> Unit,
     iconName: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .size(42.dp)
-            .shadow(elevation = 3.dp, shape = CircleShape, ambientColor = CoFlowGlassStyles.Shadow, spotColor = CoFlowGlassStyles.Shadow)
-            .clip(CircleShape)
-            .background(CoFlowColors.Blue)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+        modifier =
+            modifier
+                .size(42.dp)
+                .shadow(
+                    elevation = 3.dp,
+                    shape = CircleShape,
+                    ambientColor = CoFlowGlassStyles.Shadow,
+                    spotColor = CoFlowGlassStyles.Shadow,
+                ).clip(CircleShape)
+                .background(CoFlowColors.Blue)
+                .clickable { onClick() },
+        contentAlignment = Alignment.Center,
     ) {
         CoFlowIcon(name = iconName, modifier = Modifier.size(24.dp), Color.White)
     }
@@ -79,18 +95,91 @@ fun CoFlowGlassIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     iconSize: Dp = 21.dp,
-    containerSize: Dp = 38.dp
+    containerSize: Dp = 38.dp,
 ) {
     Box(
-        modifier = modifier
-            .size(containerSize)
-            .shadow(elevation = 2.dp, shape = CircleShape, ambientColor = CoFlowGlassStyles.Shadow, spotColor = CoFlowGlassStyles.Shadow)
-            .clip(CircleShape)
-            .background(CoFlowGlassStyles.ControlSurface)
-            .border(1.dp, CoFlowGlassStyles.Border, CircleShape)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+        modifier =
+            modifier
+                .size(containerSize)
+                .shadow(
+                    elevation = 2.dp,
+                    shape = CircleShape,
+                    ambientColor = CoFlowGlassStyles.Shadow,
+                    spotColor = CoFlowGlassStyles.Shadow,
+                ).clip(CircleShape)
+                .background(CoFlowGlassStyles.ControlSurface)
+                .border(1.dp, CoFlowGlassStyles.Border, CircleShape)
+                .clickable { onClick() },
+        contentAlignment = Alignment.Center,
     ) {
         CoFlowIcon(name = iconName, modifier = Modifier.size(iconSize), color = CoFlowColors.TextPrimary)
+    }
+}
+
+/**
+ * Новая синяя кнопка для сохранения изменений.
+ */
+@Composable
+fun CoFlowEditSaveButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(48.dp),
+        shape = CoFlowShapes.Button,
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = CoFlowColors.Blue,
+                contentColor = Color.White,
+                disabledContainerColor = CoFlowColors.Blue.copy(alpha = 0.45f),
+            ),
+    ) {
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/**
+ * Новая универсальная белая кнопка с красным текстом.
+ * Надпись задаётся снаружи: «Удалить», «Отмена» и т. д.
+ */
+@Composable
+fun CoFlowEditDeleteButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(48.dp),
+        shape = CoFlowShapes.Button,
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = Color.White,
+                contentColor = Color.Red,
+                disabledContainerColor = Color.White.copy(alpha = 0.6f),
+                disabledContentColor = Color.Red.copy(alpha = 0.5f),
+            ),
+        elevation =
+            ButtonDefaults.buttonElevation(
+                defaultElevation = 2.dp,
+                pressedElevation = 1.dp,
+                disabledElevation = 0.dp,
+            ),
+    ) {
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }

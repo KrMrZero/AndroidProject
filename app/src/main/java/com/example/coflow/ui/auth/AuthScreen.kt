@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -122,6 +123,17 @@ fun AuthScreen(
                     height = 48.dp
                 )
 
+                if (state.errorMessage != null) {
+                    Spacer(modifier = Modifier.height(CoFlowSpacing.Small))
+                    Text(
+                        text = state.errorMessage!!,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = CoFlowColors.Error,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(CoFlowSpacing.Small))
 
                 TextButton(onClick = onToggleMode) {
@@ -142,6 +154,10 @@ fun AuthScreen(
 fun AuthRoute(onAuthSuccess: () -> Unit,
               viewModel: AuthViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state.isAuthorized) {
+        if (state.isAuthorized) onAuthSuccess()
+    }
     AuthScreen(
         state = state,
         onUsernameChange = viewModel::onUsernameChange,
@@ -149,7 +165,7 @@ fun AuthRoute(onAuthSuccess: () -> Unit,
         onPasswordChange = viewModel::onPasswordChange,
         onConfirmChange = viewModel::onConfirmChange,
         onToggleMode = viewModel::onToggleMode,
-        onSubmit = { viewModel.onSubmit(onAuthSuccess) }
+        onSubmit = { viewModel.onSubmit() }
     )
 }
 

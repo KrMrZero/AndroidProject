@@ -6,14 +6,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,7 +31,7 @@ fun ChooseProjectScreen(
     onBackClick: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onSelectProject: (String) -> Unit,
-    onConfirmSelection: (String) -> Unit
+    onConfirmSelection: (String) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     val filteredProjects = state.filteredProjects
@@ -42,16 +42,20 @@ fun ChooseProjectScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(coFlowTasksBackgroundBrush())) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = CoFlowSpacing.ScreenHorizontal)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = CoFlowSpacing.ScreenHorizontal),
         ) {
             // Заголовок экрана
             CoFlowScreenHeader(
                 title = stringResource(R.string.choose_project_header),
-                onBackClick = { focusManager.clearFocus(); onBackClick() }
+                onBackClick = {
+                    focusManager.clearFocus()
+                    onBackClick()
+                },
             )
 
             // Поиск по прооектам
@@ -61,7 +65,7 @@ fun ChooseProjectScreen(
                 placeholder = stringResource(R.string.create_task_choose_project_name),
                 leadingIcon = "search",
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
             )
 
             Spacer(Modifier.height(20.dp))
@@ -69,19 +73,19 @@ fun ChooseProjectScreen(
             // Заголовок списка: название раздела + количество отфильтрованных проектов
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
                     text = stringResource(R.string.create_task_projects),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = CoFlowColors.TextPrimary
+                    color = CoFlowColors.TextPrimary,
                 )
                 Text(
                     text = "${filteredProjects.size}",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = CoFlowColors.TextSecondary
+                    color = CoFlowColors.TextSecondary,
                 )
             }
 
@@ -89,29 +93,30 @@ fun ChooseProjectScreen(
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
+                contentPadding = PaddingValues(bottom = 16.dp),
             ) {
                 items(
                     items = filteredProjects,
-                    key = { it }
+                    key = { it },
                 ) { project ->
                     val isSelected = project == selectedProject
 
                     CoFlowGlassCard(
                         isSelected = isSelected,
-                        modifier = Modifier
-                            .height(52.dp)
-                            .clickable { onSelectProject(project) }
+                        modifier =
+                            Modifier
+                                .height(52.dp)
+                                .clickable { onSelectProject(project) },
                     ) {
                         Box(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                            contentAlignment = Alignment.CenterStart
+                            contentAlignment = Alignment.CenterStart,
                         ) {
                             Text(
                                 text = project,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (isSelected) CoFlowColors.Blue else CoFlowColors.TextPrimary
+                                color = if (isSelected) CoFlowColors.Blue else CoFlowColors.TextPrimary,
                             )
                         }
                     }
@@ -126,7 +131,7 @@ fun ChooseProjectScreen(
                     onConfirmSelection(selectedProject)
                 },
                 enabled = state.canConfirmProject,
-                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
             )
         }
     }
@@ -136,7 +141,7 @@ fun ChooseProjectScreen(
 fun ChooseProjectRoute(
     onBackClick: () -> Unit,
     onConfirmSelection: (String) -> Unit,
-    viewModel: CreateTaskViewModel = viewModel()
+    viewModel: CreateTaskViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -148,7 +153,7 @@ fun ChooseProjectRoute(
         onConfirmSelection = { project ->
             viewModel.confirmProjectSelection(project)
             onConfirmSelection(project)
-        }
+        },
     )
 }
 
@@ -156,20 +161,21 @@ fun ChooseProjectRoute(
     name = "Выбор проекта",
     showBackground = true,
     widthDp = 390,
-    heightDp = 844
+    heightDp = 844,
 )
 @Composable
 private fun ChooseProjectScreenPreview() {
     CoFlowTheme {
         ChooseProjectScreen(
-            state = CreateTaskUiState(
-                allProjects = listOf("Проект 1", "Проект 2"),
-                pendingProject = "Проект 1"
-            ),
+            state =
+                CreateTaskUiState(
+                    allProjects = listOf("Проект 1", "Проект 2"),
+                    pendingProject = "Проект 1",
+                ),
             onBackClick = {},
             onSearchQueryChange = {},
             onSelectProject = {},
-            onConfirmSelection = {}
+            onConfirmSelection = {},
         )
     }
 }
