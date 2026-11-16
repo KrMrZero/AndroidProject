@@ -171,7 +171,7 @@ fun CoFlowEditDeleteButton(
             ),
         elevation =
             ButtonDefaults.buttonElevation(
-                defaultElevation = 2.dp,
+                defaultElevation = 1.dp,
                 pressedElevation = 1.dp,
                 disabledElevation = 0.dp,
             ),
