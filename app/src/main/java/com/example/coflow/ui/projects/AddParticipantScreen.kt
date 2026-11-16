@@ -239,6 +239,7 @@ private fun ProjectParticipantRow(
 
 @Composable
 fun AddParticipantRoute(
+    projectId: String,
     onBackClick: () -> Unit,
     onInvited: (List<ProjectParticipantItem>) -> Unit,
     viewModel: AddProjectParticipantViewModel = viewModel(),
@@ -247,7 +248,9 @@ fun AddParticipantRoute(
 
     LaunchedEffect(state.isInvited) {
         if (state.isInvited) {
-            onInvited(state.participants)
+            val invited = state.participants
+            viewModel.onInvitedHandled()
+            onInvited(invited)
         }
     }
 

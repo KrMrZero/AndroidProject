@@ -18,9 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/**
- * Участник, добавляемый в проект на экране «Добавить участника».
- */
 data class ProjectParticipantItem(
     val uid: String,
     val email: String,
@@ -28,9 +25,6 @@ data class ProjectParticipantItem(
     val initials: String,
 )
 
-/**
- * Состояние экрана «Добавить участника».
- */
 data class AddProjectParticipantUiState(
     val emailQuery: String = "",
     val participants: List<ProjectParticipantItem> = emptyList(),
@@ -41,16 +35,11 @@ data class AddProjectParticipantUiState(
     val errorMessage: String? = null,
     @param:StringRes val errorMessageResId: Int? = null,
 ) {
-    /** Кнопка «Пригласить» активна, если список участников не пустой и нет процесса загрузки/отправки. */
     val canInvite: Boolean
         get() = participants.isNotEmpty() && !isSubmitting && !isLoading && !isInitialLoading
 }
 
-/**
- * ViewModel для экрана добавления участников к существующему проекту.
- * Получает `projectId` через [SavedStateHandle] из аргументов навигации.
- */
-class AddProjectParticipantViewModel(
+class AddProjectParticipantViewModel @JvmOverloads constructor( // <-- FIX: Добавлен @JvmOverloads
     savedStateHandle: SavedStateHandle,
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
@@ -61,25 +50,16 @@ class AddProjectParticipantViewModel(
     private val _state = MutableStateFlow(AddProjectParticipantUiState())
     val state: StateFlow<AddProjectParticipantUiState> = _state.asStateFlow()
 
-    // Набор ID пользователей, которые уже являются участниками данного проекта
     private var existingMemberUserIds: Set<String> = emptySet()
 
     init {
         if (projectId.isBlank()) {
-            _state.update {
-                it.copy(
-                    isInitialLoading = false,
-                    errorMessageResId = R.string.error_project_id_missing,
-                )
-            }
+            _state.update { it.copy(isInitialLoading = false) }
         } else {
             loadExistingMembers()
         }
     }
 
-    /**
-     * Загрузка списка уже существующих участников проекта для исключения повторного добавления.
-     */
     private fun loadExistingMembers() {
         viewModelScope.launch {
             _state.update { it.copy(isInitialLoading = true) }
@@ -114,16 +94,10 @@ class AddProjectParticipantViewModel(
         }
     }
 
-    /**
-     * Изменение текста в поле ввода почты нового участника.
-     */
     fun onEmailQueryChange(query: String) {
         _state.update { it.copy(emailQuery = query, errorMessage = null, errorMessageResId = null) }
     }
 
-    /**
-     * Добавление участника по кнопке «+».
-     */
     fun onAddParticipantClick() {
         val currentState = _state.value
         if (currentState.isInitialLoading || currentState.isLoading) return
@@ -232,9 +206,6 @@ class AddProjectParticipantViewModel(
         }
     }
 
-    /**
-     * Удаление участника из подготавливаемого списка.
-     */
     fun onRemoveParticipant(participant: ProjectParticipantItem) {
         _state.update { state ->
             state.copy(
@@ -246,25 +217,17 @@ class AddProjectParticipantViewModel(
         }
     }
 
-    /**
-     * Кнопка «Сохранить» (заглушка по текущим требованиям).
-     * Выставляет флаг `isInvited = true` в состоянии UI.
-     */
     fun onInviteClick() {
         val currentParticipants = _state.value.participants
         if (currentParticipants.isEmpty() || _state.value.isSubmitting) return
 
-        if (projectId.isBlank()) {
-            _state.update { it.copy(errorMessageResId = R.string.error_project_id_missing) }
-            return
-        }
-
         _state.update { it.copy(isInvited = true) }
     }
 
-    /**
-     * Очистка ошибок.
-     */
+    fun onInvitedHandled() {
+        _state.update { it.copy(isInvited = false) }
+    }
+
     fun clearError() {
         _state.update { it.copy(errorMessage = null, errorMessageResId = null) }
     }
