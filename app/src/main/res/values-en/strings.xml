@@ -112,14 +112,16 @@
     <string name="notification_message">Notifications interface not implemented yet.</string>
     <string name="dialog_ok">Got it</string>
 
-    <!-- Строка для подтверждения действия с задачей -->
-    <string name="task_action_confirm_take">Take task?</string>
-    <string name="task_action_confirm_complete">Complete task?</string>
-    <string name="task_action_taken">Task taken successfully</string>
-    <string name="task_action_completed">Task completed successfully</string>
-    <string name="task_action_button_take">Take</string>
-    <string name="task_action_button_complete">Complete</string>
-    <string name="task_action_button_cancel">Cancel</string>
+        <!-- Строка для подтверждения действия с задачей -->
+        <string name="task_action_confirm_take">Take task?</string>
+        <string name="task_action_confirm_complete">Complete task?</string>
+        <string name="task_action_message_take">Do you really want to take task "%1$s" into work?</string>
+        <string name="task_action_message_complete">Do you really want to mark task "%1$s" as completed?</string>
+        <string name="task_action_taken">Task taken successfully</string>
+        <string name="task_action_completed">Task completed successfully</string>
+        <string name="task_action_button_take">Take</string>
+        <string name="task_action_button_complete">Complete</string>
+        <string name="task_action_button_cancel">Cancel</string>
 
     <!-- Навигация -->
     <string name="navigation_tasks">My tasks</string>
@@ -212,7 +214,7 @@
     <string name="project_description_label">Description</string>
     <string name="project_owner_label">Owner</string>
     <string name="participants_header">Participants</string>
-    <string name="search_participants_placeholder">Search...</string>
+    <string name="search_participants_placeholder">Name or email</string>
     <string name="participants_placeholder">No participants yet</string>
 
     <!-- Project statuses -->

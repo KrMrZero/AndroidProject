@@ -45,6 +45,8 @@ import com.example.coflow.ui.theme.CoFlowColors
 import com.example.coflow.ui.theme.CoFlowSpacing
 import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
 
+
+
 @Composable
 fun EditTaskScreen(
     state: EditTaskUiState,
@@ -61,6 +63,38 @@ fun EditTaskScreen(
     onDueDateChange: (String) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
+
+    // TODO: Обработку ошибок (загрузка, сохранение, удаление) сейчас ошибки отображаются
+// в AlertDialog, кнопка «ОК» возвращает на предыдущий экран, надо?
+    val errorText = when {
+        state.errorMessageResId != null && state.errorMessage != null ->
+            stringResource(state.errorMessageResId, state.errorMessage)
+
+        state.errorMessageResId != null ->
+            stringResource(state.errorMessageResId)
+
+        else -> state.errorMessage
+    }
+
+    if (errorText != null) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = {
+                Text(
+                    text = stringResource(R.string.error_title),
+                    color = CoFlowColors.Error,
+                )
+            },
+            text = {
+                Text(text = errorText)
+            },
+            confirmButton = {
+                TextButton(onClick = onBackClick) {
+                    Text(stringResource(R.string.ok_button))
+                }
+            },
+        )
+    }
 
     // Возвращаем пользователя на предыдущий экран системной кнопкой «Назад».
     BackHandler(onBack = onBackClick)
@@ -172,15 +206,6 @@ fun EditTaskScreen(
                             .padding(top = 8.dp, bottom = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    CoFlowEditDeleteButton(
-                        text = stringResource(R.string.edit_task_delete_button),
-                        onClick = {
-                            focusManager.clearFocus()
-                            onDeleteClick()
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-
                     CoFlowEditSaveButton(
                         text = stringResource(R.string.edit_task_save_button),
                         onClick = {
@@ -189,6 +214,15 @@ fun EditTaskScreen(
                         },
                         modifier = Modifier.weight(1f),
                         enabled = state.canSave,
+                    )
+
+                    CoFlowEditDeleteButton(
+                        text = stringResource(R.string.edit_task_delete_button),
+                        onClick = {
+                            focusManager.clearFocus()
+                            onDeleteClick()
+                        },
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
