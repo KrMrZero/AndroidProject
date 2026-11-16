@@ -180,31 +180,6 @@ fun ProjectTasksScreen(
                 }
 
                 Spacer(Modifier.height(7.dp))
-
-                // Возвращаем нижнее меню!
-                CoFlowBottomNavigationBar(
-                    items =
-                        listOf(
-                            NavItem(
-                                icon = "tasks",
-                                title = stringResource(R.string.navigation_tasks),
-                                selected = false,
-                                onClick = onNavigateToTasks,
-                            ),
-                            NavItem(
-                                icon = "folder",
-                                title = stringResource(R.string.navigation_projects),
-                                selected = true,
-                                onClick = onNavigateToProjects,
-                            ),
-                            NavItem(
-                                icon = "person",
-                                title = stringResource(R.string.navigation_profile),
-                                selected = false,
-                                onClick = onNavigateToProfile,
-                            ),
-                        ),
-                )
             }
         }
     }
