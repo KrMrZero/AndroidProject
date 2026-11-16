@@ -77,7 +77,9 @@ data class CreateTaskUiState(
     // --- Статус и ошибки ---
     val errorMessage: String? = null,
     val isSubmitting: Boolean = false,
-) : AssigneeSelectionState, DateSelectionState, ProjectSelectionState {
+) : AssigneeSelectionState,
+    DateSelectionState,
+    ProjectSelectionState {
     /** Отфильтрованный список исполнителей на основе поискового запроса */
     override val filteredAssignees: List<Assignee>
         get() =

@@ -129,7 +129,11 @@ class TaskDetailScreenViewModel(
             val formattedDate = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy"))
 
             val isAuthor = task.authorId == currentUid
-            val isAssignee = task.assigneeId.split(",").map { it.trim() }.contains(currentUid)
+            val isAssignee =
+                task.assigneeId
+                    .split(",")
+                    .map { it.trim() }
+                    .contains(currentUid)
             val isProjectOwner = project?.ownerId == currentUid && currentUid.isNotBlank()
 
             val canModifyTask = isAuthor || isAssignee || isProjectOwner

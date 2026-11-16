@@ -16,11 +16,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -330,122 +330,125 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                            // Редактирование задачи
-                            composable(
-                                route = Screen.EDIT_TASK_ASSIGNEES,
-                                arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
-                            ) {
-                                val parentEntry = remember(it) {
-                                    navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                // Редактирование задачи
+                                composable(
+                                    route = Screen.EDIT_TASK_ASSIGNEES,
+                                    arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
+                                ) {
+                                    val parentEntry =
+                                        remember(it) {
+                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                        }
+                                    val editViewModel: EditTaskViewModel = viewModel(parentEntry)
+                                    val state by editViewModel.state.collectAsStateWithLifecycle()
+
+                                    ChooseAssigneeRoute(
+                                        state = state,
+                                        onBackClick = { navController.popBackStack() },
+                                        onSearchQueryChange = editViewModel::onAssigneeSearchQueryChange,
+                                        onToggleAssignee = editViewModel::togglePendingAssignee,
+                                        onConfirmSelection = { assignees ->
+                                            editViewModel.confirmAssigneeSelection(assignees)
+                                            navController.popBackStack()
+                                        },
+                                    )
                                 }
-                                val editViewModel: EditTaskViewModel = viewModel(parentEntry)
-                                val state by editViewModel.state.collectAsStateWithLifecycle()
 
-                                ChooseAssigneeRoute(
-                                    state = state,
-                                    onBackClick = { navController.popBackStack() },
-                                    onSearchQueryChange = editViewModel::onAssigneeSearchQueryChange,
-                                    onToggleAssignee = editViewModel::togglePendingAssignee,
-                                    onConfirmSelection = { assignees ->
-                                        editViewModel.confirmAssigneeSelection(assignees)
-                                        navController.popBackStack()
-                                    },
-                                )
-                            }
+                                // выбор даты при редактировании задачи
+                                composable(
+                                    route = Screen.EDIT_TASK_DATE,
+                                    arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
+                                ) {
+                                    val parentEntry =
+                                        remember(it) {
+                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                        }
+                                    val editViewModel: EditTaskViewModel = viewModel(parentEntry)
+                                    val state by editViewModel.state.collectAsStateWithLifecycle()
 
-                            // выбор даты при редактировании задачи
-                            composable(
-                                route = Screen.EDIT_TASK_DATE,
-                                arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
-                            ) {
-                                val parentEntry = remember(it) {
-                                    navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                    ChooseDateRoute(
+                                        state = state,
+                                        onBackClick = { navController.popBackStack() },
+                                        onMonthChange = editViewModel::onCalendarMonthChange,
+                                        onDateSelected = editViewModel::onDateSelected,
+                                        onConfirmSelection = { date ->
+                                            editViewModel.confirmDateSelection(date)
+                                            navController.popBackStack()
+                                        },
+                                    )
                                 }
-                                val editViewModel: EditTaskViewModel = viewModel(parentEntry)
-                                val state by editViewModel.state.collectAsStateWithLifecycle()
 
-                                ChooseDateRoute(
-                                    state = state,
-                                    onBackClick = { navController.popBackStack() },
-                                    onMonthChange = editViewModel::onCalendarMonthChange,
-                                    onDateSelected = editViewModel::onDateSelected,
-                                    onConfirmSelection = { date ->
-                                        editViewModel.confirmDateSelection(date)
-                                        navController.popBackStack()
-                                    },
-                                )
-                            }
+                                // выбор проекта при редактировании задачи
+                                composable(
+                                    route = Screen.EDIT_TASK_PROJECT,
+                                    arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
+                                ) {
+                                    val parentEntry =
+                                        remember(it) {
+                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                        }
+                                    val editViewModel: EditTaskViewModel = viewModel(parentEntry)
+                                    val state by editViewModel.state.collectAsStateWithLifecycle()
 
-                            // выбор проекта при редактировании задачи
-                            composable(
-                                route = Screen.EDIT_TASK_PROJECT,
-                                arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
-                            ) {
-                                val parentEntry = remember(it) {
-                                    navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                    ChooseProjectRoute(
+                                        state = state,
+                                        onBackClick = { navController.popBackStack() },
+                                        onSearchQueryChange = editViewModel::onProjectSearchQueryChange,
+                                        onSelectProject = editViewModel::onPendingProjectChange,
+                                        onConfirmSelection = { project ->
+                                            editViewModel.confirmProjectSelection(project)
+                                            navController.popBackStack()
+                                        },
+                                    )
                                 }
-                                val editViewModel: EditTaskViewModel = viewModel(parentEntry)
-                                val state by editViewModel.state.collectAsStateWithLifecycle()
 
-                                ChooseProjectRoute(
-                                    state = state,
-                                    onBackClick = { navController.popBackStack() },
-                                    onSearchQueryChange = editViewModel::onProjectSearchQueryChange,
-                                    onSelectProject = editViewModel::onPendingProjectChange,
-                                    onConfirmSelection = { project ->
-                                        editViewModel.confirmProjectSelection(project)
-                                        navController.popBackStack()
-                                    },
-                                )
-                            }
+                                // Выбор исполнителей
+                                composable(Screen.CHOOSE_ASSIGNEE) {
+                                    val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
+                                    ChooseAssigneeRoute(
+                                        state = createState,
+                                        onBackClick = { navController.popBackStack() },
+                                        onSearchQueryChange = createTaskViewModel::onAssigneeSearchQueryChange,
+                                        onToggleAssignee = createTaskViewModel::togglePendingAssignee,
+                                        onConfirmSelection = { assignees ->
+                                            createTaskViewModel.confirmAssigneeSelection(assignees)
+                                            navController.popBackStack()
+                                        },
+                                        // viewModel = createTaskViewModel,
+                                    )
+                                }
 
-                            // Выбор исполнителей
-                            composable(Screen.CHOOSE_ASSIGNEE) {
-                                val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
-                                ChooseAssigneeRoute(
-                                    state = createState,
-                                    onBackClick = { navController.popBackStack() },
-                                    onSearchQueryChange = createTaskViewModel::onAssigneeSearchQueryChange,
-                                    onToggleAssignee = createTaskViewModel::togglePendingAssignee,
-                                    onConfirmSelection = { assignees ->
-                                        createTaskViewModel.confirmAssigneeSelection(assignees)
-                                        navController.popBackStack()
-                                    },
-                                    //viewModel = createTaskViewModel,
-                                )
-                            }
+                                // Выбор проекта
+                                composable(Screen.CHOOSE_PROJECT) {
+                                    val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
+                                    ChooseProjectRoute(
+                                        state = createState,
+                                        onBackClick = { navController.popBackStack() },
+                                        onSearchQueryChange = createTaskViewModel::onProjectSearchQueryChange,
+                                        onSelectProject = createTaskViewModel::onPendingProjectChange,
+                                        onConfirmSelection = { project ->
+                                            createTaskViewModel.confirmProjectSelection(project)
+                                            navController.popBackStack()
+                                        },
+                                        // viewModel = createTaskViewModel,
+                                    )
+                                }
 
-                            // Выбор проекта
-                            composable(Screen.CHOOSE_PROJECT) {
-                                val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
-                                ChooseProjectRoute(
-                                    state = createState,
-                                    onBackClick = { navController.popBackStack() },
-                                    onSearchQueryChange = createTaskViewModel::onProjectSearchQueryChange,
-                                    onSelectProject = createTaskViewModel::onPendingProjectChange,
-                                    onConfirmSelection = { project ->
-                                        createTaskViewModel.confirmProjectSelection(project)
-                                        navController.popBackStack()
-                                    },
-                                    //viewModel = createTaskViewModel,
-                                )
-                            }
-
-                            // Выбор даты
-                            composable(Screen.CHOOSE_DATE) {
-                                val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
-                                ChooseDateRoute(
-                                    state = createState,
-                                    onBackClick = { navController.popBackStack() },
-                                    onMonthChange = createTaskViewModel::onCalendarMonthChange,
-                                    onDateSelected = createTaskViewModel::onDateSelected,
-                                    onConfirmSelection = { date ->
-                                        createTaskViewModel.confirmDateSelection(date)
-                                        navController.popBackStack()
-                                    },
-                                    //viewModel = createTaskViewModel,
-                                  )
-                              }
+                                // Выбор даты
+                                composable(Screen.CHOOSE_DATE) {
+                                    val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
+                                    ChooseDateRoute(
+                                        state = createState,
+                                        onBackClick = { navController.popBackStack() },
+                                        onMonthChange = createTaskViewModel::onCalendarMonthChange,
+                                        onDateSelected = createTaskViewModel::onDateSelected,
+                                        onConfirmSelection = { date ->
+                                            createTaskViewModel.confirmDateSelection(date)
+                                            navController.popBackStack()
+                                        },
+                                        // viewModel = createTaskViewModel,
+                                    )
+                                }
                             }
                             if (showBottomBar) {
                                 CoFlowBottomNavigationBar(

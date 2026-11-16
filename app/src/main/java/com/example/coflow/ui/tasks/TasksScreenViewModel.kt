@@ -183,7 +183,11 @@ class TasksScreenViewModel(
                         val taskRows =
                             allFetchedTasks.map { task ->
                                 val isAuthor = task.authorId == uid
-                                val isAssignee = task.assigneeId.split(",").map { it.trim() }.contains(uid)
+                                val isAssignee =
+                                    task.assigneeId
+                                        .split(",")
+                                        .map { it.trim() }
+                                        .contains(uid)
                                 val projectOwnerId = projectMap[task.projectId]?.ownerId.orEmpty()
                                 val isProjectOwner = projectOwnerId == uid && uid.isNotBlank()
 
@@ -322,15 +326,21 @@ class TasksScreenViewModel(
             }
         }
     }
+
     private fun applyFiltersAndGrouping() {
         _uiState.update { state ->
             var filtered = state.allTaskRows
             val uid = currentUid
 
             if (state.selectedFilters.contains("MINE") && uid != null) {
-                filtered = filtered.filter {
-                    it.authorId == uid || it.assigneeId.split(",").map { s -> s.trim() }.contains(uid)
-                }
+                filtered =
+                    filtered.filter {
+                        it.authorId == uid ||
+                            it.assigneeId
+                                .split(",")
+                                .map { s -> s.trim() }
+                                .contains(uid)
+                    }
             }
 
             val selectedProjectIds =

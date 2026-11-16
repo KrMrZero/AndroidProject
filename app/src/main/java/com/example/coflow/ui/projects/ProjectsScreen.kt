@@ -160,10 +160,7 @@ fun ProjectsScreen(
         // Нижняя панель
         AnimatedVisibility(visible = isBottomPanelVisible) {
             Column(
-                modifier =
-                    Modifier.fillMaxWidth().padding(
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 2.dp,
-                    ),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), // ← маленький фиксированный
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(
@@ -186,7 +183,7 @@ fun ProjectsScreen(
                     CoFlowFabButton(onClick = onNavigateToCreateProject, iconName = "folder_plus")
                 }
 
-                Spacer(Modifier.height(7.dp))
+//                Spacer(Modifier.height(7.dp))
             }
         }
     }

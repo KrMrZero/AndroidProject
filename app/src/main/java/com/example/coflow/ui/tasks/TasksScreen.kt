@@ -202,15 +202,7 @@ fun TasksScreen(
 
             AnimatedVisibility(visible = state.isBottomBarVisible) {
                 Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                bottom =
-                                    WindowInsets.navigationBars
-                                        .asPaddingValues()
-                                        .calculateBottomPadding() + 2.dp,
-                            ),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), // ← маленький фиксированный
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Row(
@@ -237,8 +229,7 @@ fun TasksScreen(
                             iconName = "task_plus",
                         )
                     }
-                    //Spacer(Modifier.height(7.dp))
-
+//                    Spacer(Modifier.height(7.dp))
                 }
             }
         }
@@ -909,9 +900,9 @@ fun TasksRoute(
     )
 }
 
-//@Preview(name = "По статусу (Обычное)", showBackground = true, widthDp = 390, heightDp = 844)
-//@Composable
-//fun TasksScreen_Default_Preview() {
+// @Preview(name = "По статусу (Обычное)", showBackground = true, widthDp = 390, heightDp = 844)
+// @Composable
+// fun TasksScreen_Default_Preview() {
 //    CoFlowTheme {
 //        TasksScreen(
 //            state =
@@ -1016,4 +1007,4 @@ fun TasksRoute(
 //            onTaskSwipe = {},
 //        )
 //    }
-//}
+// }

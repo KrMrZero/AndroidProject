@@ -180,9 +180,9 @@ fun ChooseAssigneeRoute(
     onSearchQueryChange: (String) -> Unit,
     onToggleAssignee: (String) -> Unit,
     onConfirmSelection: (List<Assignee>) -> Unit,
-    //viewModel: CreateTaskViewModel = viewModel(),
+    // viewModel: CreateTaskViewModel = viewModel(),
 ) {
-    //val state by viewModel.state.collectAsStateWithLifecycle()
+    // val state by viewModel.state.collectAsStateWithLifecycle()
 
 //    ChooseAssigneeScreen(
 //        state = state,
