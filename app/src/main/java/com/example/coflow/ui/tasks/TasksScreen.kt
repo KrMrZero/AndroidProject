@@ -85,6 +85,7 @@ fun TasksScreen(
     onToggleGroup: (String) -> Unit,
     onNavigateToProjects: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
     onClearError: () -> Unit,
     onTaskSwipe: (TaskRowUi) -> Unit,
 ) {
@@ -163,7 +164,7 @@ fun TasksScreen(
                     )
                 } · ${state.completedCount} ${stringResource(R.string.my_tasks_completed)}",
                 trailingContent = {
-                    NotificationBell()
+                    NotificationBell(onClick = onNavigateToNotifications)
                 },
             )
 
@@ -246,7 +247,7 @@ fun TasksScreen(
                                     icon = "tasks",
                                     title = stringResource(R.string.navigation_tasks),
                                     selected = true,
-                                    onClick = onNavigateToProfile,
+                                    onClick = {},
                                 ),
                                 NavItem(
                                     icon = "folder",
@@ -258,7 +259,7 @@ fun TasksScreen(
                                     icon = "person",
                                     title = stringResource(R.string.navigation_profile),
                                     selected = false,
-                                    onClick = {},
+                                    onClick = onNavigateToProfile,
                                 ),
                             ),
                     )
@@ -913,6 +914,7 @@ fun TasksRoute(
     onNavigateToTaskDetail: (String) -> Unit,
     onNavigateToProjects: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
     onTaskSwipe: (TaskRowUi) -> Unit,
 ) {
     // Подписываемся на изменения состояния с учетом жизненного цикла
@@ -927,6 +929,7 @@ fun TasksRoute(
         onToggleGroup = viewModel::onToggleGroup,
         onNavigateToProjects = onNavigateToProjects,
         onNavigateToProfile = onNavigateToProfile,
+        onNavigateToNotifications = onNavigateToNotifications,
         onClearError = viewModel::clearError,
         onTaskSwipe = viewModel::onTaskSwipe,
     )
@@ -1035,6 +1038,7 @@ fun TasksScreen_Default_Preview() {
             onToggleGroup = {},
             onNavigateToProjects = {},
             onNavigateToProfile = {},
+            onNavigateToNotifications = {},
             onClearError = {},
             onTaskSwipe = {},
         )

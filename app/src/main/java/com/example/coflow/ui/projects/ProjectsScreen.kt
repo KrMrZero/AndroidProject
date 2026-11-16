@@ -72,6 +72,8 @@ import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
 fun ProjectsRoute(
     onNavigateToCreateProject: () -> Unit,
     onNavigateToTasks: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
     onNavigateToProjectTasks: (String) -> Unit,
     viewModel: ProjectsViewModel = viewModel(),
 ) {
@@ -84,6 +86,8 @@ fun ProjectsRoute(
         onFilterSelect = viewModel::onFilterSelect,
         onNavigateToCreateProject = onNavigateToCreateProject,
         onNavigateToTasks = onNavigateToTasks,
+        onNavigateToProfile = onNavigateToProfile,
+        onNavigateToNotifications = onNavigateToNotifications,
         onNavigateToProjectTasks = onNavigateToProjectTasks,
     )
 }
@@ -97,6 +101,8 @@ fun ProjectsScreen(
     onFilterSelect: (ProjectFilter) -> Unit,
     onNavigateToCreateProject: () -> Unit,
     onNavigateToTasks: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
     onNavigateToProjectTasks: (String) -> Unit,
 ) {
     // Стейт для скролла и скрытия нижней панели
@@ -143,7 +149,7 @@ fun ProjectsScreen(
             title = stringResource(R.string.projects_header),
             subtitle = "${state.activeCount} ${stringResource(R.string.my_tasks_active)}",
             trailingContent = {
-                NotificationBell()
+                NotificationBell(onClick = onNavigateToNotifications)
             },
         )
 
@@ -231,7 +237,7 @@ fun ProjectsScreen(
                                 icon = "person",
                                 title = stringResource(R.string.navigation_profile),
                                 selected = false,
-                                onClick = { /* TODO */ },
+                                onClick = onNavigateToProfile,
                             ),
                         ),
                 )
@@ -428,6 +434,8 @@ private fun ProjectsScreenPreview() {
             onFilterSelect = {},
             onNavigateToCreateProject = {},
             onNavigateToTasks = {},
+            onNavigateToProfile = {},
+            onNavigateToNotifications = {},
             onNavigateToProjectTasks = {},
         )
     }

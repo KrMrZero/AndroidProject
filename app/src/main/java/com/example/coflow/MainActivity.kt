@@ -2,6 +2,7 @@ package com.example.coflow
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,6 +23,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.ui.auth.AuthRoute
+import com.example.coflow.ui.profile.EditProfileRoute
+import com.example.coflow.ui.profile.NotificationsRoute
+import com.example.coflow.ui.profile.ProfileRoute
 import com.example.coflow.ui.projects.CreateProjectRoute
 import com.example.coflow.ui.projects.EditProjectRoute
 import com.example.coflow.ui.projects.ProjectDetailRoute
@@ -54,6 +58,10 @@ object Screen {
 
     const val EDIT_PROJECT = "edit_project/{projectId}"
     const val PROJECT_TASKS = "project_tasks/{projectId}"
+
+    const val PROFILE = "profile"
+    const val EDIT_PROFILE = "edit_profile"
+    const val NOTIFICATIONS = "notifications"
 }
 
 class MainActivity : ComponentActivity() {
@@ -82,7 +90,11 @@ class MainActivity : ComponentActivity() {
                         val navController = rememberNavController()
                         val createTaskViewModel: CreateTaskViewModel = viewModel()
                         val tasksViewModel: TasksScreenViewModel = viewModel()
+                        val context = LocalContext.current
 
+                        val notImplementedToast = { message: String ->
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        }
                         NavHost(navController = navController, startDestination = Screen.TASKS) {
                             // Мои задачи
                             composable(Screen.TASKS) {
@@ -91,7 +103,8 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToCreateTask = { navController.navigate(Screen.CREATE_TASK) },
                                     onNavigateToTaskDetail = { taskId -> navController.navigate("task_detail/$taskId") },
                                     onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },
-                                    onNavigateToProfile = { },
+                                    onNavigateToProfile = { navController.navigateToTab(Screen.PROFILE) },
+                                    onNavigateToNotifications = { navController.navigate(Screen.NOTIFICATIONS) },
                                     onTaskSwipe = {},
                                 )
                             }
@@ -101,6 +114,8 @@ class MainActivity : ComponentActivity() {
                                 ProjectsRoute(
                                     onNavigateToCreateProject = { navController.navigate(Screen.CREATE_PROJECT) },
                                     onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
+                                    onNavigateToProfile = { navController.navigateToTab(Screen.PROFILE) },
+                                    onNavigateToNotifications = { navController.navigate(Screen.NOTIFICATIONS) },
                                     onNavigateToProjectTasks = { projectId ->
                                         navController.navigate("project_tasks/$projectId")
                                     },
@@ -157,7 +172,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
                                     onNavigateToProjects = { navController.popBackStack() },
-                                    onNavigateToProfile = { /* TODO: Профиль */ },
+                                    onNavigateToProfile = { navController.navigateToTab(Screen.PROFILE) },
                                     onNavigateToProjectDetail = { projectId -> navController.navigate("project_detail/$projectId") },
                                 )
                             }
@@ -259,6 +274,47 @@ class MainActivity : ComponentActivity() {
                                         navController.popBackStack()
                                     },
                                     viewModel = createTaskViewModel,
+                                )
+                            }
+
+                            // Профиль
+                            composable(Screen.PROFILE) {
+                                ProfileRoute(
+                                    onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
+                                    onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },
+                                    onNavigateToNotifications = { navController.navigate(Screen.NOTIFICATIONS) },
+                                    onNavigateToEditProfile = { navController.navigate(Screen.EDIT_PROFILE) },
+                                    onChangePasswordClick = {
+                                        notImplementedToast("Смена пароля пока недоступна")
+                                    },
+                                    onAccountDeleted = {
+                                        Toast.makeText(context, "Аккаунт удалён", Toast.LENGTH_SHORT).show()
+                                        isAuthenticated = false
+                                    },
+                                    onLoggedOut = { isAuthenticated = false },
+                                )
+                            }
+
+                            // Изменение профиля
+                            composable(Screen.EDIT_PROFILE) {
+                                EditProfileRoute(
+                                    onNavigateBack = { navController.popBackStack() },
+                                    onProfileSaved = { navController.popBackStack() },
+                                    onNavigateToNotifications = { navController.navigate(Screen.NOTIFICATIONS) },
+                                    hasUnreadNotifications = true,
+                                    onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
+                                    onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },
+                                    onNavigateToProfile = { navController.popBackStack() },
+                                )
+                            }
+
+                            // Уведомления
+                            composable(Screen.NOTIFICATIONS) {
+                                NotificationsRoute(
+                                    onNavigateBack = { navController.popBackStack() },
+                                    onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
+                                    onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },
+                                    onNavigateToProfile = { navController.navigateToTab(Screen.PROFILE) },
                                 )
                             }
                         }

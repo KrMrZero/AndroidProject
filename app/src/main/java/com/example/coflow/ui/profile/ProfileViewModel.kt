@@ -1,0 +1,174 @@
+package com.example.coflow.ui.profile
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.coflow.repositories.AuthRepository
+import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
+import com.example.coflow.repositories.FirebaseUserRepositoryImpl
+import com.example.coflow.repositories.UserRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/*
+ * ЗОНА «ПРОФИЛЬ» (экран 1 из 3).
+ *
+ * Владелец зоны ведёт только этот файл и ProfileScreen.kt.
+ * Уже работает: загрузка профиля из users/{uid}, выход, удаление аккаунта.
+ *
+ * TODO(профиль):
+ * - сохранять isDarkTheme/isNotificationsEnabled (DataStore или поле пользователя);
+ * - при смене темы прокидывать флаг в CoFlowTheme;
+ * - «Сменить пароль»: метод changePassword в AuthRepository + диалог.
+ *
+ * TODO(уведомления): hasUnreadNotifications сейчас всегда true.
+ *  Заменить на реальный счётчик из будущего NotificationRepository.
+ */
+
+/**
+ * Состояние главного экрана профиля.
+ *
+ * [isDarkTheme] и [isNotificationsEnabled] пока живут только в памяти экрана:
+ * сохранение настроек появится вместе с отдельным слоем (DataStore/настройки пользователя).
+ */
+data class ProfileUiState(
+    val name: String = "",
+    val email: String = "",
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null,
+    val isDarkTheme: Boolean = false,
+    val isNotificationsEnabled: Boolean = true,
+    val hasUnreadNotifications: Boolean = true,
+    val isLoggedOut: Boolean = false,
+    val isDeletingAccount: Boolean = false,
+    val deleteAccountError: String? = null,
+    val isAccountDeleted: Boolean = false,
+)
+
+/**
+ * Логика главного экрана профиля.
+ *
+ * Данные берутся из `users/{uid}`: UID — из [AuthRepository], профиль — из [UserRepository].
+ * Выход выполняет [AuthRepository.logout] и выставляет [ProfileUiState.isLoggedOut],
+ * чтобы экран сам решил, куда навигировать.
+ */
+class ProfileViewModel(
+    private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
+    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+) : ViewModel() {
+    private val _state = MutableStateFlow(ProfileUiState())
+    val state: StateFlow<ProfileUiState> = _state.asStateFlow()
+
+    init {
+        refresh()
+    }
+
+    /** Перечитывает профиль текущего пользователя. */
+    fun refresh() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, errorMessage = null) }
+
+            val uid = authRepository.getCurrentUserUid()
+            if (uid.isNullOrBlank()) {
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Пользователь не авторизован",
+                    )
+                }
+                return@launch
+            }
+
+            userRepository
+                .getById(uid)
+                .onSuccess { user ->
+                    _state.update {
+                        it.copy(
+                            name = user.name,
+                            email = user.email,
+                            isLoading = false,
+                            errorMessage = null,
+                        )
+                    }
+                }.onFailure { error ->
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "Не удалось загрузить профиль",
+                        )
+                    }
+                }
+        }
+    }
+
+    /** Локальное переключение тёмной темы (пока без сохранения). */
+    fun onDarkThemeToggle(enabled: Boolean) {
+        _state.update { it.copy(isDarkTheme = enabled) }
+    }
+
+    /** Локальное переключение уведомлений (пока без сохранения). */
+    fun onNotificationsToggle(enabled: Boolean) {
+        _state.update { it.copy(isNotificationsEnabled = enabled) }
+    }
+
+    /** Выход из аккаунта. Профиль в Firestore при этом остаётся. */
+    fun logout() {
+        runCatching { authRepository.logout() }
+            .onSuccess { _state.update { it.copy(isLoggedOut = true) } }
+            .onFailure { error ->
+                _state.update {
+                    it.copy(errorMessage = error.message ?: "Не удалось выйти из аккаунта")
+                }
+            }
+    }
+
+    /** Сбрасывает флаг выхода после навигации. */
+    fun consumeLogout() {
+        _state.update { it.copy(isLoggedOut = false) }
+    }
+
+    /**
+     * Удаляет аккаунт текущего пользователя.
+     *
+     * Пароль нужен Firebase для повторной аутентификации перед удалением.
+     * После успешного удаления выставляет [ProfileUiState.isAccountDeleted].
+     */
+    fun deleteAccount(password: String) {
+        if (_state.value.isDeletingAccount) return
+
+        _state.update { it.copy(isDeletingAccount = true, deleteAccountError = null) }
+
+        viewModelScope.launch {
+            authRepository
+                .deleteAccount(password)
+                .onSuccess {
+                    _state.update {
+                        it.copy(
+                            isDeletingAccount = false,
+                            deleteAccountError = null,
+                            isAccountDeleted = true,
+                        )
+                    }
+                }.onFailure { error ->
+                    _state.update {
+                        it.copy(
+                            isDeletingAccount = false,
+                            deleteAccountError = error.message ?: "Не удалось удалить аккаунт",
+                        )
+                    }
+                }
+        }
+    }
+
+    /** Сбрасывает ошибку удаления аккаунта. */
+    fun consumeDeleteAccountError() {
+        _state.update { it.copy(deleteAccountError = null) }
+    }
+
+    /** Сбрасывает флаг удаления аккаунта после навигации. */
+    fun consumeAccountDeleted() {
+        _state.update { it.copy(isAccountDeleted = false) }
+    }
+}
