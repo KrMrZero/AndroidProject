@@ -132,7 +132,7 @@ fun CoFlowBottomNavigationBar(
                     CoFlowGlassStyles.NavigationShape,
                 ).padding(3.dp),
     ) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(72.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(70.dp)) {
             val itemWidth = maxWidth / items.size
 
             val indicatorOffset by animateDpAsState(

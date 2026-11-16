@@ -387,8 +387,7 @@ class MainActivity : ComponentActivity() {
                                         ),
                                     modifier =
                                         Modifier
-                                            .navigationBarsPadding()
-                                            .padding(bottom = 8.dp),
+                                            .navigationBarsPadding(),
                                 )
                             }
                         }
