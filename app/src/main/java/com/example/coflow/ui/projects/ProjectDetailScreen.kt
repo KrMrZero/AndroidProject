@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +43,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.coflow.R
 import com.example.coflow.models.Role
 import com.example.coflow.ui.components.CoFlowGlassCard
+import com.example.coflow.ui.components.CoFlowGlassTextField
 import com.example.coflow.ui.components.CoFlowIcon
 import com.example.coflow.ui.components.CoFlowScreenHeader
 import com.example.coflow.ui.theme.CoFlowColors
@@ -167,13 +167,12 @@ fun ProjectDetailScreen(
                             color = CoFlowColors.TextPrimary,
                         )
 
-                        OutlinedTextField(
+                        CoFlowGlassTextField(
                             value = state.searchQuery,
                             onValueChange = onSearchQueryChange,
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text(stringResource(R.string.search_participants_placeholder)) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
+                            placeholder = stringResource(R.string.search_participants_placeholder),
+                            leadingIcon = "search",
                         )
 
                         if (state.filteredParticipants.isEmpty()) {
