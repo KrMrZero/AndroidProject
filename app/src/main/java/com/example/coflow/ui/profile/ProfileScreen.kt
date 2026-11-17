@@ -21,11 +21,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +48,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coflow.ui.components.CoFlowGlassCard
@@ -67,7 +69,7 @@ import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
  * переходы в редактирование и уведомления.
  *
  * Доделать (подробнее — docs/PROFILE.md):
- * 1) тёмная тема: сейчас только флаг в состоянии, интерфейс не меняется;
+ * 1) тёмная тема: переключатель убран, нужен слой настроек и применение в CoFlowTheme;
  * 2) «Сменить пароль»: сейчас внешний колбэк, нужен диалог + метод в AuthRepository;
  * 3) аватар: в карточке иконка, при необходимости — фото из Storage;
  * 4) строки: вынести подписи в strings.xml.
@@ -113,13 +115,25 @@ fun ProfileRoute(
         }
     }
 
+    // Профиль мог измениться на экране редактирования, поэтому перечитываем
+    // данные каждый раз, когда экран снова становится активным.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    viewModel.refresh()
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     ProfileScreen(
         state = state,
         hasUnreadNotifications = hasUnreadNotifications,
         onEditProfileClick = onNavigateToEditProfile,
         onNotificationsClick = onNavigateToNotifications,
-        onDarkThemeToggle = viewModel::onDarkThemeToggle,
-        onNotificationsToggle = viewModel::onNotificationsToggle,
         onLogoutClick = viewModel::logout,
         onChangePasswordClick = onChangePasswordClick,
         onDeleteAccountClick = { showDeleteDialog = true },
@@ -200,8 +214,6 @@ fun ProfileScreen(
     state: ProfileUiState,
     onEditProfileClick: () -> Unit,
     onNotificationsClick: () -> Unit,
-    onDarkThemeToggle: (Boolean) -> Unit,
-    onNotificationsToggle: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     onChangePasswordClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
@@ -246,36 +258,6 @@ fun ProfileScreen(
                     isLoading = state.isLoading,
                     onClick = onEditProfileClick,
                 )
-
-                // Настройки внешнего вида
-                // TODO(профиль): переключатель меняет только локальный флаг.
-                //  Нужно сохранять выбор и прокидывать его в CoFlowTheme (MainActivity).
-                CoFlowGlassCard(modifier = Modifier.fillMaxWidth()) {
-                    ProfileMenuRow(
-                        title = "Тёмная тема",
-                        leadingIcon = Icons.Outlined.DarkMode,
-                        trailing = {
-                            ProfileSwitch(
-                                checked = state.isDarkTheme,
-                                onCheckedChange = onDarkThemeToggle,
-                            )
-                        },
-                    )
-                }
-
-                // Настройки уведомлений
-                CoFlowGlassCard(modifier = Modifier.fillMaxWidth()) {
-                    ProfileMenuRow(
-                        title = "Уведомления",
-                        leadingIcon = Icons.Outlined.Notifications,
-                        trailing = {
-                            ProfileSwitch(
-                                checked = state.isNotificationsEnabled,
-                                onCheckedChange = onNotificationsToggle,
-                            )
-                        },
-                    )
-                }
 
                 // Действия с аккаунтом
                 CoFlowGlassCard(modifier = Modifier.fillMaxWidth()) {
@@ -419,12 +401,9 @@ private fun ProfileScreenPreview() {
                     name = "Елизавета",
                     email = "liza.simendeeva@mail.ru",
                     isLoading = false,
-                    isNotificationsEnabled = true,
                 ),
             onEditProfileClick = {},
             onNotificationsClick = {},
-            onDarkThemeToggle = {},
-            onNotificationsToggle = {},
             onLogoutClick = {},
             onChangePasswordClick = {},
             onDeleteAccountClick = {},

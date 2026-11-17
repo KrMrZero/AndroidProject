@@ -30,16 +30,14 @@ import kotlinx.coroutines.launch
 /**
  * Состояние главного экрана профиля.
  *
- * [isDarkTheme] и [isNotificationsEnabled] пока живут только в памяти экрана:
- * сохранение настроек появится вместе с отдельным слоем (DataStore/настройки пользователя).
+ * Настройки внешнего вида и уведомлений сюда не входят: переключатели убраны
+ * до появления сохранения настроек и применения темы в CoFlowTheme.
  */
 data class ProfileUiState(
     val name: String = "",
     val email: String = "",
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
-    val isDarkTheme: Boolean = false,
-    val isNotificationsEnabled: Boolean = true,
     val isLoggedOut: Boolean = false,
     val isDeletingAccount: Boolean = false,
     val deleteAccountError: String? = null,
@@ -100,16 +98,6 @@ class ProfileViewModel(
                     }
                 }
         }
-    }
-
-    /** Локальное переключение тёмной темы (пока без сохранения). */
-    fun onDarkThemeToggle(enabled: Boolean) {
-        _state.update { it.copy(isDarkTheme = enabled) }
-    }
-
-    /** Локальное переключение уведомлений (пока без сохранения). */
-    fun onNotificationsToggle(enabled: Boolean) {
-        _state.update { it.copy(isNotificationsEnabled = enabled) }
     }
 
     /** Выход из аккаунта. Профиль в Firestore при этом остаётся. */
