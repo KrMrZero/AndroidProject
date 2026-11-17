@@ -59,6 +59,9 @@ object Screen {
     const val PROJECT_DETAIL = "project_detail/{projectId}"
     const val CREATE_PROJECT = "create_project"
     const val EDIT_TASK = "edit_task/{taskId}"
+    const val EDIT_TASK_ASSIGNEES = "edit_task/{taskId}/assignees"
+    const val EDIT_TASK_PROJECT = "edit_task/{taskId}/project"
+    const val EDIT_TASK_DATE = "edit_task/{taskId}/date"
 
     const val EDIT_PROJECT = "edit_project/{projectId}"
     const val PROJECT_TASKS = "project_tasks/{projectId}"
