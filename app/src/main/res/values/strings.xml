@@ -238,7 +238,7 @@
     <string name="project_status_archived">В архиве</string>
 
     <!-- Роли -->
-    <string name="role_owner">Владелец</string>
+    <string name="role_owner">Админ</string>
     <string name="role_member">Участник</string>
 
     <!-- Edit oles -->

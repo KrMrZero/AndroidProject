@@ -226,7 +226,7 @@
     <string name="project_status_archived">Archived</string>
 
     <!-- Roles -->
-    <string name="role_owner">Owner</string>
+    <string name="role_owner">Admin</string>
     <string name="role_member">Member</string>
 
     <!-- Edit oles -->
