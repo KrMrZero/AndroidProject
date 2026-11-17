@@ -103,9 +103,11 @@ class MainActivity : ComponentActivity() {
                         val notificationsViewModel: NotificationsViewModel = viewModel()
                         val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
 
-                        // ViewModel живёт в Activity и переживает выход из аккаунта,
-                        // поэтому после каждого входа подписываемся заново.
+                        // ViewModel-и живут в Activity и переживают выход из аккаунта,
+                        // поэтому после каждого входа подписываемся заново: иначе
+                        // останутся данные предыдущего пользователя.
                         LaunchedEffect(Unit) {
+                            tasksViewModel.refresh()
                             notificationsViewModel.subscribe()
                         }
 
