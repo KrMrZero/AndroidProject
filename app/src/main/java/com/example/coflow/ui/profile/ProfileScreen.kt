@@ -91,6 +91,7 @@ fun ProfileRoute(
     onChangePasswordClick: () -> Unit,
     onAccountDeleted: () -> Unit,
     onLoggedOut: () -> Unit,
+    hasUnreadNotifications: Boolean = false,
     viewModel: ProfileViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -114,6 +115,7 @@ fun ProfileRoute(
 
     ProfileScreen(
         state = state,
+        hasUnreadNotifications = hasUnreadNotifications,
         onEditProfileClick = onNavigateToEditProfile,
         onNotificationsClick = onNavigateToNotifications,
         onDarkThemeToggle = viewModel::onDarkThemeToggle,
@@ -203,6 +205,7 @@ fun ProfileScreen(
     onLogoutClick: () -> Unit,
     onChangePasswordClick: () -> Unit,
     onDeleteAccountClick: () -> Unit,
+    hasUnreadNotifications: Boolean = false,
     onTabSelected: (ProfileTab) -> Unit = {},
 ) {
     Box(
@@ -222,7 +225,7 @@ fun ProfileScreen(
                 subtitle = "Личные данные и настройки",
                 trailingContent = {
                     NotificationBell(
-                        hasUnread = state.hasUnreadNotifications,
+                        hasUnread = hasUnreadNotifications,
                         onClick = onNotificationsClick,
                     )
                 },

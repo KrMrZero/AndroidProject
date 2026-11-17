@@ -74,6 +74,7 @@ fun ProjectsRoute(
     onNavigateToTasks: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
+    hasUnreadNotifications: Boolean = false,
     onNavigateToProjectTasks: (String) -> Unit,
     viewModel: ProjectsViewModel = viewModel(),
 ) {
@@ -88,6 +89,7 @@ fun ProjectsRoute(
         onNavigateToTasks = onNavigateToTasks,
         onNavigateToProfile = onNavigateToProfile,
         onNavigateToNotifications = onNavigateToNotifications,
+        hasUnreadNotifications = hasUnreadNotifications,
         onNavigateToProjectTasks = onNavigateToProjectTasks,
     )
 }
@@ -103,6 +105,7 @@ fun ProjectsScreen(
     onNavigateToTasks: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
+    hasUnreadNotifications: Boolean = false,
     onNavigateToProjectTasks: (String) -> Unit,
 ) {
     // Стейт для скролла и скрытия нижней панели
@@ -149,7 +152,10 @@ fun ProjectsScreen(
             title = stringResource(R.string.projects_header),
             subtitle = "${state.activeCount} ${stringResource(R.string.my_tasks_active)}",
             trailingContent = {
-                NotificationBell(onClick = onNavigateToNotifications)
+                NotificationBell(
+                    hasUnread = hasUnreadNotifications,
+                    onClick = onNavigateToNotifications,
+                )
             },
         )
 

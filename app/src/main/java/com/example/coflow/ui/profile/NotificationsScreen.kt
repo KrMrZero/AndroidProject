@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,7 +37,7 @@ import com.example.coflow.ui.components.CoFlowScreenHeader
 import com.example.coflow.ui.theme.CoFlowColors
 import com.example.coflow.ui.theme.CoFlowSpacing
 import com.example.coflow.ui.theme.CoFlowTheme
-import com.example.coflow.ui.theme.coFlowBackgroundBrush
+import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
 
 /*
  * ЗОНА «УВЕДОМЛЕНИЯ» (экран 2 из 3).
@@ -97,7 +98,7 @@ fun NotificationsScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(coFlowBackgroundBrush()),
+                .background(coFlowTasksBackgroundBrush()),
     ) {
         Column(
             modifier =
@@ -110,16 +111,43 @@ fun NotificationsScreen(
                 onBackClick = onBackClick,
             )
 
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 12.dp),
-            ) {
-                items(state.notifications, key = { it.id }) { notification ->
-                    NotificationCard(
-                        notification = notification,
-                        onClick = { onNotificationClick(notification.id) },
-                    )
+            when {
+                state.isLoading -> {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = CoFlowColors.TextSecondary)
+                    }
+                }
+
+                state.notifications.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = state.errorMessage ?: "Пока нет уведомлений",
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            color = CoFlowColors.TextSecondary,
+                        )
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 12.dp),
+                    ) {
+                        items(state.notifications, key = { it.id }) { notification ->
+                            NotificationCard(
+                                notification = notification,
+                                onClick = { onNotificationClick(notification.id) },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -134,7 +162,7 @@ fun NotificationsScreen(
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
                     textDecoration = TextDecoration.Underline,
-                    color = Color.White.copy(alpha = if (state.hasUnread) 1f else 0.55f),
+                    color = CoFlowColors.TextPrimary.copy(alpha = if (state.hasUnread) 1f else 0.45f),
                 )
             }
 
@@ -169,22 +197,25 @@ private fun NotificationCard(
 ) {
     CoFlowGlassCard(
         modifier = Modifier.fillMaxWidth(),
-        isSelected = !notification.isRead,
+        // Фронтенд просил не синий: карточки в тон светлому фону приложения.
+        containerColor = Color(0xFFF2F6FF),
         onClick = onClick,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
         ) {
-            Text(
-                text = notification.projectName,
-                fontSize = 12.sp,
-                color = CoFlowColors.TextSecondary,
-            )
-            Spacer(Modifier.height(8.dp))
+            if (notification.projectName.isNotBlank()) {
+                Text(
+                    text = notification.projectName,
+                    fontSize = 12.sp,
+                    color = CoFlowColors.TextSecondary,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             Text(
                 text = notification.message,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = if (notification.isRead) FontWeight.Medium else FontWeight.SemiBold,
                 color = CoFlowColors.TextPrimary,
             )
             Spacer(Modifier.height(8.dp))
@@ -192,7 +223,7 @@ private fun NotificationCard(
                 text = if (notification.isRead) "Прочитано" else "Не прочитано",
                 fontSize = 12.sp,
                 fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.SemiBold,
-                color = if (notification.isRead) CoFlowColors.TextSecondary else CoFlowColors.Blue,
+                color = if (notification.isRead) CoFlowColors.TextSecondary else CoFlowColors.TextPrimary,
             )
         }
     }
@@ -210,17 +241,18 @@ private fun NotificationsScreenPreview() {
                             NotificationUi(
                                 id = "1",
                                 projectName = "Проект 1",
-                                message = "Иван И. назначил вам задачу",
+                                message = "Иван И. назначил вам задачу «Подготовить отчёт»",
                                 isRead = true,
                             ),
                             NotificationUi(
                                 id = "2",
                                 projectName = "Проект 2",
-                                message = "Мария С. оставила комментарий к задаче",
+                                message = "Мария С. взяла вашу задачу «Сверстать экран» в работу",
                                 isRead = false,
                             ),
                         ),
                     unreadCount = 1,
+                    isLoading = false,
                 ),
             onBackClick = {},
             onMarkAllAsRead = {},

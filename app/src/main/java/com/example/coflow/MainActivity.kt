@@ -8,11 +8,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -25,6 +27,7 @@ import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.ui.auth.AuthRoute
 import com.example.coflow.ui.profile.EditProfileRoute
 import com.example.coflow.ui.profile.NotificationsRoute
+import com.example.coflow.ui.profile.NotificationsViewModel
 import com.example.coflow.ui.profile.ProfileRoute
 import com.example.coflow.ui.projects.CreateProjectRoute
 import com.example.coflow.ui.projects.EditProjectRoute
@@ -90,6 +93,18 @@ class MainActivity : ComponentActivity() {
                         val navController = rememberNavController()
                         val createTaskViewModel: CreateTaskViewModel = viewModel()
                         val tasksViewModel: TasksScreenViewModel = viewModel()
+
+                        // Один экземпляр на всё приложение: экран уведомлений и все
+                        // колокольчики показывают одно и то же состояние.
+                        val notificationsViewModel: NotificationsViewModel = viewModel()
+                        val notificationsState by notificationsViewModel.state.collectAsStateWithLifecycle()
+
+                        // ViewModel живёт в Activity и переживает выход из аккаунта,
+                        // поэтому после каждого входа подписываемся заново.
+                        LaunchedEffect(Unit) {
+                            notificationsViewModel.subscribe()
+                        }
+
                         val context = LocalContext.current
 
                         val notImplementedToast = { message: String ->
@@ -105,6 +120,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },
                                     onNavigateToProfile = { navController.navigateToTab(Screen.PROFILE) },
                                     onNavigateToNotifications = { navController.navigate(Screen.NOTIFICATIONS) },
+                                    hasUnreadNotifications = notificationsState.hasUnread,
                                     onTaskSwipe = {},
                                 )
                             }
@@ -116,6 +132,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
                                     onNavigateToProfile = { navController.navigateToTab(Screen.PROFILE) },
                                     onNavigateToNotifications = { navController.navigate(Screen.NOTIFICATIONS) },
+                                    hasUnreadNotifications = notificationsState.hasUnread,
                                     onNavigateToProjectTasks = { projectId ->
                                         navController.navigate("project_tasks/$projectId")
                                     },
@@ -284,14 +301,19 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },
                                     onNavigateToNotifications = { navController.navigate(Screen.NOTIFICATIONS) },
                                     onNavigateToEditProfile = { navController.navigate(Screen.EDIT_PROFILE) },
+                                    hasUnreadNotifications = notificationsState.hasUnread,
                                     onChangePasswordClick = {
                                         notImplementedToast("Смена пароля пока недоступна")
                                     },
                                     onAccountDeleted = {
                                         Toast.makeText(context, "Аккаунт удалён", Toast.LENGTH_SHORT).show()
+                                        notificationsViewModel.reset()
                                         isAuthenticated = false
                                     },
-                                    onLoggedOut = { isAuthenticated = false },
+                                    onLoggedOut = {
+                                        notificationsViewModel.reset()
+                                        isAuthenticated = false
+                                    },
                                 )
                             }
 
@@ -301,7 +323,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigateBack = { navController.popBackStack() },
                                     onProfileSaved = { navController.popBackStack() },
                                     onNavigateToNotifications = { navController.navigate(Screen.NOTIFICATIONS) },
-                                    hasUnreadNotifications = true,
+                                    hasUnreadNotifications = notificationsState.hasUnread,
                                     onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
                                     onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },
                                     onNavigateToProfile = { navController.popBackStack() },
@@ -311,6 +333,7 @@ class MainActivity : ComponentActivity() {
                             // Уведомления
                             composable(Screen.NOTIFICATIONS) {
                                 NotificationsRoute(
+                                    viewModel = notificationsViewModel,
                                     onNavigateBack = { navController.popBackStack() },
                                     onNavigateToTasks = { navController.navigateToTab(Screen.TASKS) },
                                     onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },

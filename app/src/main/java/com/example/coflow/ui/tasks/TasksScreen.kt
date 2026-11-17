@@ -86,6 +86,7 @@ fun TasksScreen(
     onNavigateToProjects: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
+    hasUnreadNotifications: Boolean = false,
     onClearError: () -> Unit,
     onTaskSwipe: (TaskRowUi) -> Unit,
 ) {
@@ -164,7 +165,10 @@ fun TasksScreen(
                     )
                 } · ${state.completedCount} ${stringResource(R.string.my_tasks_completed)}",
                 trailingContent = {
-                    NotificationBell(onClick = onNavigateToNotifications)
+                    NotificationBell(
+                        hasUnread = hasUnreadNotifications,
+                        onClick = onNavigateToNotifications,
+                    )
                 },
             )
 
@@ -915,6 +919,7 @@ fun TasksRoute(
     onNavigateToProjects: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
+    hasUnreadNotifications: Boolean = false,
     onTaskSwipe: (TaskRowUi) -> Unit,
 ) {
     // Подписываемся на изменения состояния с учетом жизненного цикла
@@ -930,6 +935,7 @@ fun TasksRoute(
         onNavigateToProjects = onNavigateToProjects,
         onNavigateToProfile = onNavigateToProfile,
         onNavigateToNotifications = onNavigateToNotifications,
+        hasUnreadNotifications = hasUnreadNotifications,
         onClearError = viewModel::clearError,
         onTaskSwipe = viewModel::onTaskSwipe,
     )

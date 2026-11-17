@@ -173,10 +173,19 @@ class FirebaseAuthRepositoryImpl : AuthRepository {
                     .documents
             memberships.forEach { it.reference.delete().await() }
 
-            // 2. Профиль пользователя
+            // 2. Уведомления пользователя — чтобы не осталось мусора
+            val notifications =
+                db.collection("notifications")
+                    .whereEqualTo("userId", uid)
+                    .get()
+                    .await()
+                    .documents
+            notifications.forEach { it.reference.delete().await() }
+
+            // 3. Профиль пользователя
             usersCollection.document(uid).delete().await()
 
-            // 3. Сам аккаунт Firebase Auth
+            // 4. Сам аккаунт Firebase Auth
             user.delete().await()
 
             Result.success(Unit)

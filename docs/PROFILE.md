@@ -10,7 +10,7 @@
 |---|---|---|
 | Профиль | `ui/profile/ProfileScreen.kt`, `ui/profile/ProfileViewModel.kt` | человек 1 |
 | Редактирование профиля | `ui/profile/EditProfileScreen.kt`, `ui/profile/EditProfileViewModel.kt` | человек 2 |
-| Уведомления | `ui/profile/NotificationsScreen.kt`, `ui/profile/NotificationsViewModel.kt` | ведётся отдельно (репозиторий уведомлений) |
+| Уведомления | `ui/profile/NotificationsScreen.kt`, `ui/profile/NotificationsViewModel.kt` | ведётся нами, см. [`docs/NOTIFICATIONS.md`](NOTIFICATIONS.md) |
 | Общие компоненты | `ui/profile/ProfileComponents.kt`, `ui/profile/ProfileBottomNavigation.kt` | заморожены, менять только по согласованию |
 | Интеграция | `MainActivity.kt`, `ui/components/CoFlowNotificationBell.kt` | аккуратно: файлы правят и другие люди |
 
@@ -25,6 +25,7 @@
 - Сохранение имени и почты в Firestore.
 - Переходы: профиль ↔ задачи ↔ проекты, профиль → редактирование, профиль → уведомления.
 - Колокольчик ведёт на экран уведомлений.
+- Уведомления хранятся в Firestore и приходят из `NotificationRepository`.
 - У каждого экрана есть `@Preview` — можно смотреть UI без Firebase.
 
 ## Текущие заглушки
@@ -34,8 +35,8 @@
 | Тёмная тема | `ProfileViewModel`, `ProfileScreen` | флаг в памяти, тема не переключается |
 | Переключатель уведомлений | `ProfileViewModel` | флаг в памяти, ни на что не влияет |
 | Смена пароля | `MainActivity` | Toast «пока недоступно» |
-| Точка непрочитанных | `ProfileUiState.hasUnreadNotifications` | всегда `true` |
-| Данные уведомлений | `NotificationsViewModel` | демо-список в памяти |
+| Точка непрочитанных | `MainActivity` + `NotificationsViewModel` | берётся из `notifications`, обновляется в реальном времени |
+| Данные уведомлений | `NotificationsViewModel` | Firestore через `NotificationRepository` (см. `docs/NOTIFICATIONS.md`) |
 | Аватар | `ProfileScreen` | иконка вместо фото |
 | Смена почты | `EditProfileViewModel` | только Firestore, без Firebase Auth |
 
@@ -58,8 +59,8 @@
    - либо временно убрать строку.
 
 4. **Реальный счётчик непрочитанных**
-   - не реализовывать самостоятельно: придёт из зоны уведомлений.
-   - в UI достаточно оставить поле `hasUnreadNotifications`.
+   - уже реализован в зоне уведомлений: `MainActivity` передаёт `hasUnread` в экраны.
+   - самостоятельно ничего считать не нужно — используйте параметр `hasUnreadNotifications`.
 
 5. **Аватар (опционально)**
    - поле в `UserModel`, загрузка в Firebase Storage, отображение в карточке;
@@ -112,10 +113,10 @@
 - `AuthRepository.changePassword(currentPassword, newPassword)` — смена пароля.
 - `AuthRepository.deleteAccount(password)` — уже реализовано.
 - `UserModel.avatarUrl` — только если делаете фото.
-- `NotificationModel` + `NotificationRepository` + DTO — зона уведомлений.
+- Уведомления (`NotificationModel`, репозиторий, правила, индексы) — уже реализованы,
+  см. [`docs/NOTIFICATIONS.md`](NOTIFICATIONS.md).
 - Правила Firestore: чтение/запись своего профиля, удаление своих `memberships`,
   доступ к своим уведомлениям.
-- Индекс Firestore по `notifications.userId + createdAt`.
 
 ## Правила работы
 

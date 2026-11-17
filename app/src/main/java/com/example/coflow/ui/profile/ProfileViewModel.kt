@@ -23,8 +23,8 @@ import kotlinx.coroutines.launch
  * - при смене темы прокидывать флаг в CoFlowTheme;
  * - «Сменить пароль»: метод changePassword в AuthRepository + диалог.
  *
- * TODO(уведомления): hasUnreadNotifications сейчас всегда true.
- *  Заменить на реальный счётчик из будущего NotificationRepository.
+ * Точка непрочитанных на колокольчике приходит параметром из MainActivity
+ * (общий NotificationsViewModel), в этом состоянии её больше нет.
  */
 
 /**
@@ -40,7 +40,6 @@ data class ProfileUiState(
     val errorMessage: String? = null,
     val isDarkTheme: Boolean = false,
     val isNotificationsEnabled: Boolean = true,
-    val hasUnreadNotifications: Boolean = true,
     val isLoggedOut: Boolean = false,
     val isDeletingAccount: Boolean = false,
     val deleteAccountError: String? = null,
