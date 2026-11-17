@@ -62,43 +62,6 @@ fun EditTaskScreen(
 ) {
     val focusManager = LocalFocusManager.current
 
-    // TODO: Обработку ошибок (загрузка, сохранение, удаление) сейчас ошибки отображаются
-// в AlertDialog, кнопка «ОК» возвращает на предыдущий экран, надо?
-    val errorText =
-        when {
-            state.errorMessageResId != null && state.errorMessage != null -> {
-                stringResource(state.errorMessageResId, state.errorMessage)
-            }
-
-            state.errorMessageResId != null -> {
-                stringResource(state.errorMessageResId)
-            }
-
-            else -> {
-                state.errorMessage
-            }
-        }
-
-    if (errorText != null) {
-        AlertDialog(
-            onDismissRequest = {},
-            title = {
-                Text(
-                    text = stringResource(R.string.error_title),
-                    color = CoFlowColors.Error,
-                )
-            },
-            text = {
-                Text(text = errorText)
-            },
-            confirmButton = {
-                TextButton(onClick = onBackClick) {
-                    Text(stringResource(R.string.ok_button))
-                }
-            },
-        )
-    }
-
     // Возвращаем пользователя на предыдущий экран системной кнопкой «Назад».
     BackHandler(onBack = onBackClick)
 
