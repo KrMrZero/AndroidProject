@@ -55,31 +55,33 @@ data class CreateTaskUiState(
     // --- Основные поля формы ---
     val title: String = "",
     val description: String = "",
-    // --- Исполнители ---
+    // --- Исполнители (реализация интерфейса) ---
     val assignees: List<Assignee> = emptyList(), // Уже подтверждённые исполнители
-    val allAssignees: List<Assignee> = emptyList(), // Полный список доступных исполнителей
-    val assigneeSearchQuery: String = "", // Текущий текст в поле поиска
-    val pendingAssigneeIds: Set<String> = emptySet(), // Временно выбранные ID на экране выбора
-    val isLoadingAssignees: Boolean = false,
+    override val allAssignees: List<Assignee> = emptyList(), // Полный список доступных исполнителей
+    override val assigneeSearchQuery: String = "", // Текущий текст в поле поиска
+    override val pendingAssigneeIds: Set<String> = emptySet(), // Временно выбранные ID на экране выбора
+    override val isLoadingAssignees: Boolean = false,
     // --- Дата и время ---
-    val selectedDueDate: LocalDate = LocalDate.now(),
-    val calendarMonth: YearMonth = YearMonth.now(),
-    val dueDate: String = "",
+    override val selectedDueDate: LocalDate = LocalDate.now(),
+    override val calendarMonth: YearMonth = YearMonth.now(),
+    override val dueDate: String = "",
     // --- Проект ---
     val selectedProjectId: String = "",
     val project: String = "",
-    val allProjects: List<String> = emptyList(),
-    val allProjectItems: List<ProjectItem> = emptyList(),
-    val projectSearchQuery: String = "",
-    val pendingProjectId: String = "",
-    val pendingProject: String = "",
+    override val allProjects: List<String> = emptyList(),
+    override val allProjectItems: List<ProjectItem> = emptyList(),
+    override val projectSearchQuery: String = "",
+    override val pendingProjectId: String = "",
+    override val pendingProject: String = "",
     val isLoadingProjects: Boolean = false,
     // --- Статус и ошибки ---
     val errorMessage: String? = null,
     val isSubmitting: Boolean = false,
-) {
+) : AssigneeSelectionState,
+    DateSelectionState,
+    ProjectSelectionState {
     /** Отфильтрованный список исполнителей на основе поискового запроса */
-    val filteredAssignees: List<Assignee>
+    override val filteredAssignees: List<Assignee>
         get() =
             if (assigneeSearchQuery.isBlank()) {
                 allAssignees
@@ -91,7 +93,7 @@ data class CreateTaskUiState(
             }
 
     /** Отфильтрованный список проектов на основе поискового запроса. */
-    val filteredProjects: List<String>
+    override val filteredProjects: List<String>
         get() =
             if (projectSearchQuery.isBlank()) {
                 allProjects
@@ -100,15 +102,15 @@ data class CreateTaskUiState(
             }
 
     /** Количество временно выбранных исполнителей (для отображения в UI). */
-    val pendingSelectedCount: Int
+    override val pendingSelectedCount: Int
         get() = pendingAssigneeIds.size
 
     /** Кнопка "Готово" на экране выбора исполнителей активна, если выбран хотя бы один. */
-    val canConfirmAssignees: Boolean
+    override val canConfirmAssignees: Boolean
         get() = pendingAssigneeIds.isNotEmpty()
 
     /** Кнопка "Готово" на экране выбора проекта активна, если проект выбран. */
-    val canConfirmProject: Boolean get() = pendingProject.isNotBlank() || pendingProjectId.isNotBlank()
+    override val canConfirmProject: Boolean get() = pendingProject.isNotBlank() || pendingProjectId.isNotBlank()
 
     /**
      * Главная кнопка "Создать задачу" активна только при заполнении обязательного поля (название)

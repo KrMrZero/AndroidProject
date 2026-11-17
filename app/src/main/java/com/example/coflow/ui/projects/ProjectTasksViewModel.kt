@@ -1,12 +1,24 @@
 package com.example.coflow.ui.projects
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.repositories.AuthRepository
+import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
+import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
+import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
+import com.example.coflow.repositories.ProjectRepository
+import com.example.coflow.repositories.TaskRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 // --- Типы для группировки и фильтров ---
 
@@ -38,6 +50,7 @@ data class ProjectTaskGroupUi(
 )
 
 data class ProjectTasksUiState(
+    val projectId: String = "",
     val allTasks: List<ProjectTaskRowUi> = emptyList(),
     val groups: List<ProjectTaskGroupUi> = emptyList(),
     val currentGrouping: ProjectTaskGrouping = ProjectTaskGrouping.STATUS,
@@ -52,10 +65,74 @@ data class ProjectTasksUiState(
 
 // --- ViewModel ---
 
-class ProjectTasksViewModel : ViewModel() {
+class ProjectTasksViewModel(
+    savedStateHandle: SavedStateHandle,
+    private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
+    private val taskRepository: TaskRepository = FirebaseTaskRepositoryImpl(), // <-- ДОБАВИТЬ
+    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(), // <-- ДОБАВИТЬ
+) : ViewModel() {
+    // Достаем ID проекта, который пришел из MainActivity
+    private val projectId: String = savedStateHandle.get<String>("projectId").orEmpty()
+
     // По условию задачи: ViewModel пустая, данные будут появляться позже.
-    private val _uiState = MutableStateFlow(ProjectTasksUiState())
+    private val _uiState = MutableStateFlow(ProjectTasksUiState(projectId = projectId))
     val uiState: StateFlow<ProjectTasksUiState> = _uiState.asStateFlow()
+
+    init {
+        _uiState.update { recalculate(it) }
+        loadProjectTitle()
+        loadTasks()
+    }
+
+    private fun loadTasks() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val currentUid = authRepository.getCurrentUserUid().orEmpty()
+
+            // Запрашиваем задачи конкретно этого проекта из Firebase
+            val result = taskRepository.getByProjectId(projectId)
+
+            result
+                .onSuccess { tasks ->
+                    // Превращаем данные из базы в наш UI-формат
+                    val mappedTasks =
+                        tasks.map { task ->
+                            ProjectTaskRowUi(
+                                id = task.id,
+                                title = task.title,
+                                projectName = "", // На этом экране не нужно, мы и так внутри проекта
+                                authorId = task.authorId,
+                                assigneeId = task.assigneeId,
+                                dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
+                                status = task.status,
+                                isDone = task.status == TaskStatus.DONE,
+                                isOverdue = task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
+                                isMine = task.authorId == currentUid || task.assigneeId == currentUid,
+                            )
+                        }
+
+                    // Обновляем стейт (теперь группы пересчитаются с реальными задачами)
+                    _uiState.update {
+                        it.copy(
+                            allTasks = mappedTasks,
+                            isLoading = false,
+                        )
+                    }
+                    _uiState.update { recalculate(it) }
+                }.onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, errorMessage = error.message) }
+                }
+        }
+    }
+
+    private fun loadProjectTitle() {
+        viewModelScope.launch {
+            val result = projectRepository.getById(projectId)
+            result.onSuccess { project ->
+                _uiState.update { it.copy(projectTitle = project.title) }
+            }
+        }
+    }
 
     fun onGroupingChange(grouping: ProjectTaskGrouping) {
         _uiState.update { recalculate(it.copy(currentGrouping = grouping)) }

@@ -51,7 +51,7 @@ import java.util.Locale
 
 @Composable
 fun ChooseDateScreen(
-    state: CreateTaskUiState,
+    state: DateSelectionState,
     onBackClick: () -> Unit,
     onMonthChange: (YearMonth) -> Unit,
     onDateSelected: (LocalDate) -> Unit,
@@ -264,21 +264,31 @@ private fun CalendarGrid(
 
 @Composable
 fun ChooseDateRoute(
+    state: DateSelectionState,
     onBackClick: () -> Unit,
+    onMonthChange: (YearMonth) -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
     onConfirmSelection: (String) -> Unit,
-    viewModel: CreateTaskViewModel = viewModel(),
+    // viewModel: CreateTaskViewModel = viewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    // val state by viewModel.state.collectAsStateWithLifecycle()
 
+//    ChooseDateScreen(
+//        state = state,
+//        onBackClick = onBackClick,
+//        onMonthChange = viewModel::onCalendarMonthChange,
+//        onDateSelected = viewModel::onDateSelected,
+//        onConfirmSelection = { date ->
+//            viewModel.confirmDateSelection(date)
+//            onConfirmSelection(date)
+//        },
+//    )
     ChooseDateScreen(
         state = state,
         onBackClick = onBackClick,
-        onMonthChange = viewModel::onCalendarMonthChange,
-        onDateSelected = viewModel::onDateSelected,
-        onConfirmSelection = { date ->
-            viewModel.confirmDateSelection(date)
-            onConfirmSelection(date)
-        },
+        onMonthChange = onMonthChange,
+        onDateSelected = onDateSelected,
+        onConfirmSelection = onConfirmSelection,
     )
 }
 

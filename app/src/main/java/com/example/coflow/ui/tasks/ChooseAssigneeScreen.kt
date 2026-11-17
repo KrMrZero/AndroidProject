@@ -54,7 +54,7 @@ import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
 
 @Composable
 fun ChooseAssigneeScreen(
-    state: CreateTaskUiState,
+    state: AssigneeSelectionState,
     onBackClick: () -> Unit,
     onAssigneeSearchQueryChange: (String) -> Unit,
     onToggleAssignee: (String) -> Unit,
@@ -175,21 +175,31 @@ fun ChooseAssigneeScreen(
 
 @Composable
 fun ChooseAssigneeRoute(
+    state: AssigneeSelectionState,
     onBackClick: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onToggleAssignee: (String) -> Unit,
     onConfirmSelection: (List<Assignee>) -> Unit,
-    viewModel: CreateTaskViewModel = viewModel(),
+    // viewModel: CreateTaskViewModel = viewModel(),
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    // val state by viewModel.state.collectAsStateWithLifecycle()
 
+//    ChooseAssigneeScreen(
+//        state = state,
+//        onBackClick = onBackClick,
+//        onAssigneeSearchQueryChange = viewModel::onAssigneeSearchQueryChange,
+//        onToggleAssignee = viewModel::togglePendingAssignee,
+//        onConfirmSelection = { assignees ->
+//            viewModel.confirmAssigneeSelection(assignees)
+//            onConfirmSelection(assignees)
+//        },
+//    )
     ChooseAssigneeScreen(
         state = state,
         onBackClick = onBackClick,
-        onAssigneeSearchQueryChange = viewModel::onAssigneeSearchQueryChange,
-        onToggleAssignee = viewModel::togglePendingAssignee,
-        onConfirmSelection = { assignees ->
-            viewModel.confirmAssigneeSelection(assignees)
-            onConfirmSelection(assignees)
-        },
+        onAssigneeSearchQueryChange = onSearchQueryChange,
+        onToggleAssignee = onToggleAssignee,
+        onConfirmSelection = onConfirmSelection,
     )
 }
 

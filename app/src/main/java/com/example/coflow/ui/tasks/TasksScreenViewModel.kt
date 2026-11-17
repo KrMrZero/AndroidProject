@@ -1,5 +1,6 @@
 package com.example.coflow.ui.tasks
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
@@ -10,6 +11,7 @@ import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
 import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
 import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.TaskRepository
+import com.example.coflow.repositories.dto.TaskUpdateDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlin.text.orEmpty
 
 enum class TaskGrouping { STATUS, DEADLINE }
 
@@ -37,6 +40,7 @@ data class TaskRowUi(
     val title: String,
     val projectId: String,
     val projectName: String,
+    val projectOwnerId: String = "",
     val authorId: String,
     val assigneeId: String,
     val dueDateFormatted: String,
@@ -44,6 +48,7 @@ data class TaskRowUi(
     val isDone: Boolean,
     val isOverdue: Boolean,
     val isMine: Boolean = false,
+    val canModify: Boolean = false,
 )
 
 data class TaskGroupUi(
@@ -177,24 +182,29 @@ class TasksScreenViewModel(
                     }.collect { allFetchedTasks ->
                         val taskRows =
                             allFetchedTasks.map { task ->
+                                val isAuthor = task.authorId == uid
+                                val isAssignee =
+                                    task.assigneeId
+                                        .split(",")
+                                        .map { it.trim() }
+                                        .contains(uid)
+                                val projectOwnerId = projectMap[task.projectId]?.ownerId.orEmpty()
+                                val isProjectOwner = projectOwnerId == uid && uid.isNotBlank()
+
                                 TaskRowUi(
                                     id = task.id,
                                     projectId = task.projectId,
                                     title = task.title,
                                     projectName = projectMap[task.projectId]?.title ?: "Без проекта",
+                                    projectOwnerId = projectOwnerId,
                                     authorId = task.authorId,
                                     assigneeId = task.assigneeId,
-                                    dueDateFormatted =
-                                        task.deadline.format(
-                                            DateTimeFormatter.ofPattern("dd.MM.yy"),
-                                        ),
+                                    dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
                                     status = task.status,
                                     isDone = task.status == TaskStatus.DONE,
-                                    isOverdue =
-                                        task.deadline.isBefore(
-                                            LocalDateTime.now(ZoneOffset.UTC),
-                                        ) && task.status != TaskStatus.DONE,
-                                    isMine = task.authorId == uid || task.assigneeId == uid,
+                                    isOverdue = task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
+                                    isMine = isAuthor || isAssignee,
+                                    canModify = isAuthor || isAssignee || isProjectOwner,
                                 )
                             }
 
@@ -267,8 +277,54 @@ class TasksScreenViewModel(
     }
 
     fun onTaskSwipe(task: TaskRowUi) {
-        // TODO: Здесь позже будет реализована логика
-        // взятия задачи или изменения её статуса, работайте друзья
+        val uid = currentUid ?: return
+
+        if (!task.canModify) {
+            _uiState.update {
+                it.copy(errorMessageResId = R.string.error_no_edit_permission)
+            }
+            return
+        }
+
+        val newStatus =
+            when (task.status) {
+                TaskStatus.TODO -> TaskStatus.IN_PROGRESS
+                TaskStatus.IN_PROGRESS -> TaskStatus.DONE
+                TaskStatus.DONE -> return
+            }
+
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isLoading = true) }
+                val updateDto =
+                    TaskUpdateDto(
+                        status = newStatus,
+                        assigneeId = if (newStatus == TaskStatus.IN_PROGRESS) uid else null,
+                    )
+                taskRepository.updateTask(task.id, updateDto).fold(
+                    onSuccess = { },
+                    onFailure = { error ->
+                        _uiState.update {
+                            it.copy(
+                                errorMessage = error.message,
+                                errorMessageResId = if (error.message == null) R.string.error_system else null,
+                            )
+                        }
+                    },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        errorMessage = e.message,
+                        errorMessageResId = if (e.message == null) R.string.error_system else null,
+                    )
+                }
+            } finally {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
     }
 
     private fun applyFiltersAndGrouping() {
@@ -277,7 +333,14 @@ class TasksScreenViewModel(
             val uid = currentUid
 
             if (state.selectedFilters.contains("MINE") && uid != null) {
-                filtered = filtered.filter { it.authorId == uid || it.assigneeId == uid }
+                filtered =
+                    filtered.filter {
+                        it.authorId == uid ||
+                            it.assigneeId
+                                .split(",")
+                                .map { s -> s.trim() }
+                                .contains(uid)
+                    }
             }
 
             val selectedProjectIds =
@@ -333,6 +396,6 @@ class TasksScreenViewModel(
     }
 
     fun clearError() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _uiState.update { it.copy(errorMessage = null, errorMessageResId = null) }
     }
 }

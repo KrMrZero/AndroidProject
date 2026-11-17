@@ -112,14 +112,16 @@
     <string name="notification_message">Notifications interface not implemented yet.</string>
     <string name="dialog_ok">Got it</string>
 
-    <!-- Строка для подтверждения действия с задачей -->
-    <string name="task_action_confirm_take">Take task?</string>
-    <string name="task_action_confirm_complete">Complete task?</string>
-    <string name="task_action_taken">Task taken successfully</string>
-    <string name="task_action_completed">Task completed successfully</string>
-    <string name="task_action_button_take">Take</string>
-    <string name="task_action_button_complete">Complete</string>
-    <string name="task_action_button_cancel">Cancel</string>
+        <!-- Строка для подтверждения действия с задачей -->
+        <string name="task_action_confirm_take">Take task?</string>
+        <string name="task_action_confirm_complete">Complete task?</string>
+        <string name="task_action_message_take">Do you really want to take task "%1$s" into work?</string>
+        <string name="task_action_message_complete">Do you really want to mark task "%1$s" as completed?</string>
+        <string name="task_action_taken">Task taken successfully</string>
+        <string name="task_action_completed">Task completed successfully</string>
+        <string name="task_action_button_take">Take</string>
+        <string name="task_action_button_complete">Complete</string>
+        <string name="task_action_button_cancel">Cancel</string>
 
     <!-- Навигация -->
     <string name="navigation_tasks">My tasks</string>
@@ -195,6 +197,11 @@
     <string name="assignee_you">You</string>
     <string name="deadline_header">Deadline</string>
 
+    <!-- Экран добавления участника -->
+    <string name="add_participant_header">Add Participant</string>
+    <string name="enter_email_placeholder">Enter email address</string>
+    <string name="save_participant_button">Save</string>
+
     <!-- Общие сообщения -->
     <string name="error_title">Error</string>
     <string name="ok_button">OK</string>
@@ -219,7 +226,7 @@
     <string name="project_status_archived">Archived</string>
 
     <!-- Roles -->
-    <string name="role_owner">Owner</string>
+    <string name="role_owner">Admin</string>
     <string name="role_member">Member</string>
 
     <!-- Edit oles -->

@@ -25,6 +25,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -191,18 +192,33 @@ fun CreateProjectScreen(
 fun CreateProjectRoute(
     onBackClick: () -> Unit,
     onProjectCreated: (CreateProjectResult) -> Unit,
+    onAddParticipantClick: () -> Unit,
+    addParticipantViewModel: AddProjectParticipantViewModel,
     viewModel: CreateProjectViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val participantState by addParticipantViewModel.state.collectAsStateWithLifecycle()
 
+    LaunchedEffect(participantState.participants) {
+        viewModel.syncParticipants(participantState.participants)
+    }
     CreateProjectScreen(
         state = state,
         onBackClick = onBackClick,
         onTitleChange = viewModel::onTitleChange,
         onDescriptionChange = viewModel::onDescriptionChange,
-        onAddParticipantClick = viewModel::onAddParticipantClick,
+        onAddParticipantClick = onAddParticipantClick,
         onRemoveParticipantClick = viewModel::onRemoveParticipantClick,
-        onConfirmRemoveParticipant = viewModel::onConfirmRemoveParticipant,
+        onConfirmRemoveParticipant = {
+            // FIX: подтверждённое удаление реально убирает участника
+            // из общего ViewModel, а syncParticipants отобразит это в UI.
+            state.participantPendingRemoval?.let { pending ->
+                participantState.participants
+                    .firstOrNull { it.email.equals(pending.email, ignoreCase = true) }
+                    ?.let(addParticipantViewModel::onRemoveParticipant)
+            }
+            viewModel.onConfirmRemoveParticipant()
+        },
         onDismissRemoveParticipantDialog = viewModel::onDismissRemoveParticipantDialog,
         onCreateProject = { viewModel.onCreateProject(onProjectCreated) },
     )

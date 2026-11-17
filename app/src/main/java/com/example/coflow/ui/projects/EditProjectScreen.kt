@@ -213,7 +213,6 @@ private fun MemberRow(
 ) {
     val isOwner = member.role == Role.OWNER
     var menuExpanded by remember { mutableStateOf(false) }
-    var roleMenuExpanded by remember { mutableStateOf(false) }
     var showRoleSelection by remember { mutableStateOf(false) }
 
     Row(
@@ -264,58 +263,56 @@ private fun MemberRow(
         )
         Spacer(Modifier.width(4.dp))
 
-        if (!isOwner) {
-            Box {
-                IconButton(
-                    onClick = { menuExpanded = true },
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Действия с участником",
-                        tint = CoFlowColors.TextSecondary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+        Box {
+            IconButton(
+                onClick = { menuExpanded = true },
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Действия с участником",
+                    tint = CoFlowColors.TextSecondary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
 
-                // Противоположная роль от текущей
-                val oppositeRole: Role = if (member.role == Role.OWNER) Role.MEMBER else Role.OWNER
-                // Основное мини-меню: Сменить роль / Удалить
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = {
-                        menuExpanded = false
-                        showRoleSelection = false
+            // Противоположная роль от текущей
+            val oppositeRole: Role = if (member.role == Role.OWNER) Role.MEMBER else Role.OWNER
+            // Основное мини-меню: Сменить роль / Удалить
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = {
+                    menuExpanded = false
+                    showRoleSelection = false
+                },
+                containerColor = CoFlowColors.White,
+            ) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = stringResource(R.string.change_role),
+                            color = CoFlowColors.TextPrimary,
+                            fontSize = 14.sp,
+                        )
                     },
-                    containerColor = CoFlowColors.White,
-                ) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = stringResource(R.string.change_role),
-                                color = CoFlowColors.TextPrimary,
-                                fontSize = 14.sp,
-                            )
-                        },
-                        onClick = {
-                            menuExpanded = false
-                            onRoleChange(oppositeRole)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = stringResource(R.string.delete_member),
-                                color = CoFlowColors.Error,
-                                fontSize = 14.sp,
-                            )
-                        },
-                        onClick = {
-                            menuExpanded = false
-                            onRemoveClick()
-                        },
-                    )
-                }
+                    onClick = {
+                        menuExpanded = false
+                        onRoleChange(oppositeRole)
+                    },
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = stringResource(R.string.delete_member),
+                            color = CoFlowColors.Error,
+                            fontSize = 14.sp,
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onRemoveClick()
+                    },
+                )
             }
         }
     }

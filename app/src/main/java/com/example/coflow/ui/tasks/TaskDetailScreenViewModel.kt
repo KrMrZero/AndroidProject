@@ -93,16 +93,13 @@ class TaskDetailScreenViewModel(
                 }
 
             // 2. Подгружаем связанные данные (проект, автора, исполнителя)
-            val projectName =
+            val project =
                 if (task.projectId.isNotBlank()) {
-                    projectRepository
-                        .getById(task.projectId)
-                        .getOrNull()
-                        ?.title
-                        .orEmpty()
+                    projectRepository.getById(task.projectId).getOrNull()
                 } else {
-                    ""
+                    null
                 }
+            val projectName = project?.title.orEmpty()
 
             val authorName =
                 if (task.authorId.isNotBlank()) {
@@ -132,13 +129,19 @@ class TaskDetailScreenViewModel(
             val formattedDate = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy"))
 
             val isAuthor = task.authorId == currentUid
-            val isAssignee = task.assigneeId == currentUid
+            val isAssignee =
+                task.assigneeId
+                    .split(",")
+                    .map { it.trim() }
+                    .contains(currentUid)
+            val isProjectOwner = project?.ownerId == currentUid && currentUid.isNotBlank()
 
-            // Логика нижней кнопки
+            val canModifyTask = isAuthor || isAssignee || isProjectOwner
+
             val (showAction, actionText, canEdit) =
                 when (task.status) {
-                    TaskStatus.TODO -> Triple(true, "Взять задачу", isAuthor)
-                    TaskStatus.IN_PROGRESS -> Triple(true, "Выполнить", isAuthor || isAssignee)
+                    TaskStatus.TODO -> Triple(canModifyTask, "Взять задачу", canModifyTask)
+                    TaskStatus.IN_PROGRESS -> Triple(canModifyTask, "Выполнить", canModifyTask)
                     TaskStatus.DONE -> Triple(false, "", false)
                 }
 

@@ -2,6 +2,7 @@ package com.example.coflow.ui.tasks
 
 import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,9 +10,11 @@ import com.example.coflow.R
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
+import com.example.coflow.repositories.FirebaseMembershipRepositoryImpl
 import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
 import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
 import com.example.coflow.repositories.FirebaseUserRepositoryImpl
+import com.example.coflow.repositories.MembershipRepository
 import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.TaskRepository
 import com.example.coflow.repositories.UserRepository
@@ -21,9 +24,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.YearMonth
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 
 data class Task(
     val id: String,
@@ -39,9 +46,21 @@ data class EditTaskUiState(
     val taskId: String = "",
     val title: String = "",
     val description: String = "",
+    override val allAssignees: List<Assignee> = emptyList(),
+    override val assigneeSearchQuery: String = "",
+    override val pendingAssigneeIds: Set<String> = emptySet(),
+    override val isLoadingAssignees: Boolean = false,
     val assignees: String = "",
     val project: String = "",
-    val dueDate: String = "",
+    val selectedProjectId: String = "",
+    override val allProjectItems: List<ProjectItem> = emptyList(),
+    override val allProjects: List<String> = emptyList(),
+    override val projectSearchQuery: String = "",
+    override val pendingProjectId: String = "",
+    override val pendingProject: String = "",
+    override val selectedDueDate: LocalDate = LocalDate.now(),
+    override val calendarMonth: YearMonth = YearMonth.now(),
+    override val dueDate: String = "",
     val canSave: Boolean = false,
     val showDeleteDialog: Boolean = false, // <-- Добавлено для управления диалогом из ViewModel
     val isSaving: Boolean = false,
@@ -49,7 +68,37 @@ data class EditTaskUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val errorMessageResId: Int? = null,
-)
+) : AssigneeSelectionState,
+    DateSelectionState,
+    ProjectSelectionState {
+    override val filteredAssignees: List<Assignee>
+        get() =
+            if (assigneeSearchQuery.isBlank()) {
+                allAssignees
+            } else {
+                allAssignees.filter {
+                    it.name.contains(assigneeSearchQuery, ignoreCase = true) ||
+                        it.email.contains(assigneeSearchQuery, ignoreCase = true)
+                }
+            }
+
+    override val pendingSelectedCount: Int
+        get() = pendingAssigneeIds.size
+
+    override val canConfirmAssignees: Boolean
+        get() = pendingAssigneeIds.isNotEmpty()
+
+    override val filteredProjects: List<String>
+        get() =
+            if (projectSearchQuery.isBlank()) {
+                allProjects
+            } else {
+                allProjects.filter { it.contains(projectSearchQuery, ignoreCase = true) }
+            }
+
+    override val canConfirmProject: Boolean
+        get() = pendingProject.isNotBlank() || pendingProjectId.isNotBlank()
+}
 
 class EditTaskViewModel(
     private val savedStateHandle: SavedStateHandle,
@@ -57,6 +106,7 @@ class EditTaskViewModel(
     private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(EditTaskUiState())
     val state: StateFlow<EditTaskUiState> = _state.asStateFlow()
@@ -67,6 +117,8 @@ class EditTaskViewModel(
     init {
         if (taskId.isNotBlank()) {
             loadTask()
+            loadAssignees()
+            loadProjects()
         } else {
             _state.update {
                 it.copy(
@@ -122,6 +174,8 @@ class EditTaskViewModel(
             val formattedDate =
                 task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy"))
 
+            val parsedDeadline = task.deadline.toLocalDate()
+
             // 6. Публикуем в state
             _state.update {
                 it.copy(
@@ -130,13 +184,212 @@ class EditTaskViewModel(
                     description = task.description,
                     assignees = assigneeNames.joinToString(", "),
                     project = projectName,
+                    selectedProjectId = task.projectId,
+                    pendingProject = projectName,
+                    pendingProjectId = task.projectId,
                     dueDate = formattedDate,
+                    selectedDueDate = parsedDeadline,
+                    calendarMonth = YearMonth.from(parsedDeadline),
                     canSave = task.title.isNotBlank() && formattedDate.isNotBlank(),
                     isLoading = false,
                     errorMessage = null,
+                    pendingAssigneeIds =
+                        task.assigneeId
+                            .split(",")
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .toSet(),
+                )
+            }
+            loadAssignees(task.projectId)
+        }
+    }
+
+    private var loadedProjectId: String = "" // запомним проект задачи для фильтрации исполнителей
+
+    private fun loadAssignees(projectId: String? = null) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingAssignees = true) }
+            try {
+                val currentUid = authRepository.getCurrentUserUid().orEmpty()
+                val userIds = mutableSetOf<String>()
+                if (currentUid.isNotBlank()) {
+                    userIds.add(currentUid)
+                    val targetProjectId = projectId ?: loadedProjectId
+                    val projectIds =
+                        if (targetProjectId.isNotBlank()) {
+                            listOf(targetProjectId)
+                        } else {
+                            val memberships = membershipRepository.getByUserId(currentUid).getOrDefault(emptyList())
+                            val ownerProjects = projectRepository.getByOwnerId(currentUid).getOrDefault(emptyList())
+                            val userProjects = projectRepository.getByUserId(currentUid).getOrDefault(emptyList())
+                            (memberships.map { it.projectId } + ownerProjects.map { it.id } + userProjects.map { it.id })
+                                .filter { it.isNotBlank() }
+                                .distinct()
+                        }
+                    for (pId in projectIds) {
+                        projectRepository.getById(pId).getOrNull()?.let { proj ->
+                            if (proj.ownerId.isNotBlank()) userIds.add(proj.ownerId)
+                        }
+                        membershipRepository.getByProjectId(pId).getOrNull()?.forEach { m ->
+                            if (m.userId.isNotBlank()) userIds.add(m.userId)
+                        }
+                    }
+                }
+                val assignees = mutableListOf<Assignee>()
+                for (uid in userIds) {
+                    val user = userRepository.getById(uid).getOrNull()
+                    val isDeleted = user?.isDeleted ?: false
+                    if (!isDeleted) {
+                        val displayName =
+                            user?.name?.ifBlank { user.email }
+                                ?: if (uid == currentUid) "Я" else "Пользователь (${uid.take(6)})"
+                        assignees.add(
+                            Assignee(
+                                id = uid,
+                                name = displayName,
+                                email = user?.email.orEmpty(),
+                                initials = getInitials(displayName),
+                                avatarColor = getAvatarColor(uid),
+                            ),
+                        )
+                    }
+                }
+                _state.update { it.copy(allAssignees = assignees, isLoadingAssignees = false) }
+            } catch (e: Exception) {
+                _state.update { it.copy(isLoadingAssignees = false, errorMessage = "Ошибка загрузки исполнителей: ${e.message}") }
+            }
+        }
+    }
+
+    private fun getInitials(name: String): String {
+        val parts = name.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+        return when {
+            parts.isEmpty() -> "??"
+            parts.size == 1 -> parts[0].take(2).uppercase()
+            else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
+        }
+    }
+
+    private fun getAvatarColor(id: String): Color {
+        val colors =
+            listOf(
+                Color(0xFF6B9AF3),
+                Color(0xFFA3B8CC),
+                Color(0xFF86D3B5),
+                Color(0xFF8BB8F8),
+                Color(0xFFAFA3F8),
+                Color(0xFFF39C12),
+                Color(0xFFE74C3C),
+                Color(0xFF9B59B6),
+            )
+        val hash = abs(id.hashCode())
+        return colors[hash % colors.size]
+    }
+
+    fun onAssigneeSearchQueryChange(query: String) {
+        _state.update { it.copy(assigneeSearchQuery = query) }
+    }
+
+    fun togglePendingAssignee(assigneeId: String) {
+        _state.update { current ->
+            val pending =
+                if (assigneeId in current.pendingAssigneeIds) {
+                    current.pendingAssigneeIds - assigneeId
+                } else {
+                    current.pendingAssigneeIds + assigneeId
+                }
+            current.copy(pendingAssigneeIds = pending)
+        }
+    }
+
+    fun confirmAssigneeSelection(assignees: List<Assignee>) {
+        _state.update {
+            it.copy(
+                assignees = assignees.joinToString(", ") { a -> a.name },
+                pendingAssigneeIds = assignees.map { it.id }.toSet(),
+            )
+        }
+    }
+
+    fun cancelAssigneeSelection() {
+        _state.update { it.copy(pendingAssigneeIds = it.pendingAssigneeIds, assigneeSearchQuery = "") }
+    }
+
+    // обработчики для даты
+
+    fun onCalendarMonthChange(month: YearMonth) {
+        _state.update { it.copy(calendarMonth = month) }
+    }
+
+    fun onDateSelected(date: LocalDate) {
+        _state.update { it.copy(selectedDueDate = date) }
+    }
+
+    fun confirmDateSelection(dateString: String) {
+        val date = LocalDate.parse(dateString, DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+        _state.update {
+            it.copy(
+                selectedDueDate = date,
+                dueDate = dateString,
+                canSave = it.title.isNotBlank() && dateString.isNotBlank(),
+            )
+        }
+    }
+
+    private fun loadProjects() {
+        viewModelScope.launch {
+            try {
+                val uid = authRepository.getCurrentUserUid().orEmpty()
+                if (uid.isBlank()) return@launch
+                val userProjects = projectRepository.getByUserId(uid).getOrDefault(emptyList())
+                val ownerProjects = projectRepository.getByOwnerId(uid).getOrDefault(emptyList())
+                val items =
+                    (userProjects + ownerProjects)
+                        .distinctBy { it.id }
+                        .filterNot { it.isDeleted }
+                        .map { ProjectItem(id = it.id, title = it.title) }
+                _state.update {
+                    it.copy(
+                        allProjectItems = items,
+                        allProjects = items.map { p -> p.title }.distinct(),
+                    )
+                }
+            } catch (_: Exception) {
+                // можно логировать
+            }
+        }
+    }
+
+    // обработчики для проектов
+
+    fun onProjectSearchQueryChange(query: String) {
+        _state.update { it.copy(projectSearchQuery = query) }
+    }
+
+    fun onPendingProjectChange(project: String) {
+        val matched = _state.value.allProjectItems.firstOrNull { it.id == project || it.title == project }
+        _state.update {
+            it.copy(
+                pendingProject = matched?.title ?: project,
+                pendingProjectId = matched?.id ?: "",
+            )
+        }
+    }
+
+    fun confirmProjectSelection(project: String) {
+        val matched = _state.value.allProjectItems.firstOrNull { it.id == project || it.title == project }
+        val title = matched?.title ?: project
+        val id = matched?.id ?: _state.value.pendingProjectId
+        if (title.isNotBlank() || id.isNotBlank()) {
+            _state.update {
+                it.copy(
+                    project = title,
+                    selectedProjectId = id,
                 )
             }
         }
+        _state.update { it.copy(pendingProject = "", pendingProjectId = "") }
     }
 
     fun onTitleChange(newTitle: String) {
@@ -171,6 +424,9 @@ class EditTaskViewModel(
                     title = current.title.trim(),
                     description = current.description.trim(),
                     // нужно дополнить для исполнителей, проекта и даты
+                    assigneeId = current.pendingAssigneeIds.joinToString(","),
+                    deadline = LocalDateTime.of(current.selectedDueDate, LocalTime.MIDNIGHT),
+                    projectId = current.selectedProjectId.ifBlank { null },
                 )
 
             val result = taskRepository.updateTask(current.taskId, updateDto)
@@ -256,26 +512,3 @@ class EditTaskViewModel(
         }
     }
 }
-
-// Заглушка для получения задачи по ID (можно вынести в отдельный файл TestData)
-private fun getMockTask(taskId: String): Task =
-    when (taskId) {
-        "1" -> {
-            Task("1", "Обновить иконки в навигации", "", emptyList(), "Дизайн-система", "30.10.26")
-        }
-
-        "3" -> {
-            Task(
-                "3",
-                "Разработать новый онбординг",
-                "Нужно сделать 3 экрана.",
-                listOf("Мария Иванова", "Ты"),
-                "Мобильное приложение",
-                "24.10.26",
-            )
-        }
-
-        else -> {
-            Task(taskId, "Провести ревью кода", "Все замечания исправлены.", listOf("Ты"), "Бэкенд", "20.10.26")
-        }
-    }

@@ -72,7 +72,7 @@ import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
 fun ProjectsRoute(
     onNavigateToCreateProject: () -> Unit,
     onNavigateToTasks: () -> Unit,
-    onNavigateToProjectDetail: (projectId: String) -> Unit,
+    onNavigateToProjectTasks: (String) -> Unit,
     viewModel: ProjectsViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -84,7 +84,7 @@ fun ProjectsRoute(
         onFilterSelect = viewModel::onFilterSelect,
         onNavigateToCreateProject = onNavigateToCreateProject,
         onNavigateToTasks = onNavigateToTasks,
-        onNavigateToProjectDetail = onNavigateToProjectDetail,
+        onNavigateToProjectTasks = onNavigateToProjectTasks,
     )
 }
 
@@ -97,39 +97,11 @@ fun ProjectsScreen(
     onFilterSelect: (ProjectFilter) -> Unit,
     onNavigateToCreateProject: () -> Unit,
     onNavigateToTasks: () -> Unit,
-    onNavigateToProjectDetail: (projectId: String) -> Unit,
+    onNavigateToProjectTasks: (String) -> Unit,
 ) {
     // Стейт для скролла и скрытия нижней панели
     val listState = rememberLazyListState()
     var isBottomPanelVisible by remember { mutableStateOf(true) }
-    var prevIndex by remember { mutableIntStateOf(0) }
-    var prevOffset by remember { mutableIntStateOf(0) }
-
-    // Логика: скрываем панель при скролле вниз, показываем при скролле вверх
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-            .collect { (index, offset) ->
-                if (index > prevIndex) {
-                    isBottomPanelVisible = false
-                    prevIndex = index
-                    prevOffset = offset
-                } else if (index < prevIndex) {
-                    isBottomPanelVisible = true
-                    prevIndex = index
-                    prevOffset = offset
-                } else {
-                    // Буфер 10 пикселей, чтобы панель не дергалась от мелких движений
-                    val delta = offset - prevOffset
-                    if (delta > 10) {
-                        if (isBottomPanelVisible) isBottomPanelVisible = false
-                        prevOffset = offset
-                    } else if (delta < -10) {
-                        if (!isBottomPanelVisible) isBottomPanelVisible = true
-                        prevOffset = offset
-                    }
-                }
-            }
-    }
 
     Column(
         modifier =
@@ -160,7 +132,7 @@ fun ProjectsScreen(
         // Список проектов (занимает всё свободное место)
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
@@ -177,7 +149,10 @@ fun ProjectsScreen(
                 }
             } else {
                 items(state.projects, key = { it.id }) { project ->
-                    ProjectCard(project = project, onClick = { onNavigateToProjectDetail(project.id) })
+                    ProjectCard(
+                        project = project,
+                        onClick = { onNavigateToProjectTasks(project.id) },
+                    )
                 }
             }
         }
@@ -185,10 +160,7 @@ fun ProjectsScreen(
         // Нижняя панель
         AnimatedVisibility(visible = isBottomPanelVisible) {
             Column(
-                modifier =
-                    Modifier.fillMaxWidth().padding(
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 2.dp,
-                    ),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), // ← маленький фиксированный
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(
@@ -211,27 +183,7 @@ fun ProjectsScreen(
                     CoFlowFabButton(onClick = onNavigateToCreateProject, iconName = "folder_plus")
                 }
 
-                Spacer(Modifier.height(7.dp))
-
-                // Нижнее меню (Навигация)
-                CoFlowBottomNavigationBar(
-                    items =
-                        listOf(
-                            NavItem(
-                                icon = "tasks",
-                                title = stringResource(R.string.navigation_tasks),
-                                selected = false,
-                                onClick = onNavigateToTasks,
-                            ),
-                            NavItem(icon = "folder", title = stringResource(R.string.navigation_projects), selected = true, onClick = {}),
-                            NavItem(
-                                icon = "person",
-                                title = stringResource(R.string.navigation_profile),
-                                selected = false,
-                                onClick = { /* TODO */ },
-                            ),
-                        ),
-                )
+//                Spacer(Modifier.height(7.dp))
             }
         }
     }
@@ -243,9 +195,12 @@ private fun ProjectCard(
     project: ProjectUiItem,
     onClick: () -> Unit,
 ) {
-    CoFlowGlassCard(modifier = Modifier.fillMaxWidth()) {
+    CoFlowGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onClick() },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Цветная полоска слева
@@ -314,7 +269,7 @@ private fun ProjectFilterPanel(
                     )
                     Spacer(Modifier.width(3.dp))
                     CoFlowIcon(
-                        name = "chevron_down",
+                        name = if (isExpanded) "chevron_up" else "chevron",
                         modifier = Modifier.size(14.dp),
                         color = CoFlowColors.Blue,
                     )
@@ -392,8 +347,7 @@ private fun GlassFilterOption(
                             colors = listOf(Color(0xFF6EA5FF), CoFlowColors.Blue),
                             start = Offset.Zero,
                             end =
-                                androidx.compose.ui.geometry
-                                    .Offset(size.width, size.height),
+                                Offset(size.width, size.height),
                         ),
                 )
             } else {
@@ -423,7 +377,7 @@ private fun ProjectsScreenPreview() {
             onFilterSelect = {},
             onNavigateToCreateProject = {},
             onNavigateToTasks = {},
-            onNavigateToProjectDetail = {},
+            onNavigateToProjectTasks = {},
         )
     }
 }
