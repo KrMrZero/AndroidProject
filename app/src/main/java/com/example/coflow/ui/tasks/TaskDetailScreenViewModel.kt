@@ -4,15 +4,20 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
+import com.example.coflow.models.NotificationType
+import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
+import com.example.coflow.repositories.FirebaseNotificationRepositoryImpl
 import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
 import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
 import com.example.coflow.repositories.FirebaseUserRepositoryImpl
+import com.example.coflow.repositories.NotificationRepository
 import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.TaskRepository
 import com.example.coflow.repositories.UserRepository
+import com.example.coflow.repositories.dto.NotificationAddDto
 import com.example.coflow.repositories.dto.TaskUpdateDto
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +60,7 @@ class TaskDetailScreenViewModel(
     private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val notificationRepository: NotificationRepository = FirebaseNotificationRepositoryImpl(),
 ) : ViewModel() {
     // События для UI (например, навигация или показ Toast)
     private val _uiEvent = Channel<UiEvent>()
@@ -65,6 +71,9 @@ class TaskDetailScreenViewModel(
 
     // Читаем taskId из маршрута "task_detail/{taskId}"
     private val taskId: String = savedStateHandle.get<String>("taskId").orEmpty()
+
+    /** Последняя загруженная задача: нужна для уведомлений при смене статуса. */
+    private var loadedTask: TaskModel? = null
 
     init {
         if (taskId.isNotBlank()) {
@@ -91,6 +100,8 @@ class TaskDetailScreenViewModel(
                     _state.update { it.copy(isLoading = false, errorMessage = error.message) }
                     return@launch
                 }
+
+            loadedTask = task
 
             // 2. Подгружаем связанные данные (проект, автора, исполнителя)
             val project =
@@ -199,6 +210,7 @@ class TaskDetailScreenViewModel(
 
             result.fold(
                 onSuccess = {
+                    notifyStatusChanged(currentUid, newStatus)
                     loadTask() // Успех: перезагружаем данные
                 },
                 onFailure = { error ->
@@ -222,6 +234,55 @@ class TaskDetailScreenViewModel(
 
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
+    }
+
+    /**
+     * Уведомляет автора задачи о том, что её взяли в работу или выполнили.
+     *
+     * Пишем из клиента после успешного обновления статуса. Себя не уведомляем,
+     * ошибку записи не показываем — она не должна мешать основному действию.
+     */
+    private suspend fun notifyStatusChanged(
+        actorId: String,
+        newStatus: TaskStatus,
+    ) {
+        val task = loadedTask ?: return
+        val authorId = task.authorId
+        if (authorId.isBlank() || authorId == actorId) return
+
+        val actorName =
+            userRepository
+                .getById(actorId)
+                .getOrNull()
+                ?.name
+                ?.ifBlank { "Пользователь" }
+                ?: "Пользователь"
+
+        val isDone = newStatus == TaskStatus.DONE
+        val type = if (isDone) NotificationType.TASK_DONE else NotificationType.TASK_TAKEN
+        val title = if (isDone) "Задачу выполнили" else "Задачу взяли в работу"
+        val message =
+            if (isDone) {
+                "$actorName выполнил вашу задачу «${task.title}»"
+            } else {
+                "$actorName взял вашу задачу «${task.title}» в работу"
+            }
+
+        runCatching {
+            notificationRepository.create(
+                NotificationAddDto(
+                    userId = authorId,
+                    type = type,
+                    title = title,
+                    message = message,
+                    projectId = task.projectId,
+                    projectName = _state.value.projectName,
+                    entityId = task.id,
+                    actorId = actorId,
+                    actorName = actorName,
+                ),
+            )
+        }
     }
 
     // События, которые ViewModel отправляет в Route

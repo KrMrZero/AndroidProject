@@ -14,6 +14,7 @@ import com.example.coflow.repositories.TaskRepository
 import com.example.coflow.repositories.dto.TaskUpdateDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -127,6 +128,12 @@ class TasksScreenViewModel(
                     // Загружаем проекты: где я участник И где я владелец
                     val userProjectsResult = projectRepository.getByUserId(uid)
                     val ownerProjectsResult = projectRepository.getByOwnerId(uid)
+
+                    // Загрузку могли отменить (например, повторным refresh() при входе).
+                    // Репозитории ловят CancellationException в runCatching и отдают её
+                    // как Result.failure, поэтому проверяем отмену явно — иначе она
+                    // превратится в ошибку «StandaloneCoroutine was cancelled» на экране.
+                    ensureActive()
 
                     if (userProjectsResult.isFailure && ownerProjectsResult.isFailure) {
                         val error =

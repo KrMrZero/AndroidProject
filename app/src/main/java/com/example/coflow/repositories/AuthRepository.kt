@@ -54,4 +54,15 @@ interface AuthRepository {
 
     /** UID текущего пользователя Auth или null. */
     fun getCurrentUserUid(): String?
+
+    /**
+     * Удаляет аккаунт текущего пользователя безвозвратно.
+     *
+     * Пароль нужен, чтобы Firebase подтвердил личность перед удалением
+     * (сервис требует недавнего входа). Вместе с аккаунтом удаляются:
+     * участие в проектах (`memberships`), уведомления и профиль `users/{uid}`.
+     *
+     * @return [Result.success] или [Result.failure] с понятным текстом ошибки.
+     */
+    suspend fun deleteAccount(password: String): Result<Unit>
 }

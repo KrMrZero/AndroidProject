@@ -85,8 +85,10 @@ fun TasksScreen(
     onToggleGroup: (String) -> Unit,
     onNavigateToProjects: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
     onClearError: () -> Unit,
     onTaskSwipe: (TaskRowUi) -> Unit,
+    hasUnreadNotifications: Boolean = false,
 ) {
     var pendingTask by remember { mutableStateOf<TaskRowUi?>(null) }
 
@@ -163,7 +165,10 @@ fun TasksScreen(
                     )
                 } · ${state.completedCount} ${stringResource(R.string.my_tasks_completed)}",
                 trailingContent = {
-                    NotificationBell()
+                    NotificationBell(
+                        hasUnread = hasUnreadNotifications,
+                        onClick = onNavigateToNotifications,
+                    )
                 },
             )
 
@@ -881,7 +886,9 @@ fun TasksRoute(
     onNavigateToTaskDetail: (String) -> Unit,
     onNavigateToProjects: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
     onTaskSwipe: (TaskRowUi) -> Unit,
+    hasUnreadNotifications: Boolean = false,
 ) {
     // Подписываемся на изменения состояния с учетом жизненного цикла
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -895,8 +902,10 @@ fun TasksRoute(
         onToggleGroup = viewModel::onToggleGroup,
         onNavigateToProjects = onNavigateToProjects,
         onNavigateToProfile = onNavigateToProfile,
+        onNavigateToNotifications = onNavigateToNotifications,
         onClearError = viewModel::clearError,
         onTaskSwipe = viewModel::onTaskSwipe,
+        hasUnreadNotifications = hasUnreadNotifications,
     )
 }
 
