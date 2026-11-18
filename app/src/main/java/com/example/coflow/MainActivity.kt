@@ -9,17 +9,13 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -41,7 +37,6 @@ import com.example.coflow.ui.projects.EditProjectRoute
 import com.example.coflow.ui.projects.ProjectDetailRoute
 import com.example.coflow.ui.projects.ProjectTasksRoute
 import com.example.coflow.ui.projects.ProjectsRoute
-import com.example.coflow.ui.projects.ProjectsViewModel
 import com.example.coflow.ui.tasks.ChooseAssigneeRoute
 import com.example.coflow.ui.tasks.ChooseDateRoute
 import com.example.coflow.ui.tasks.ChooseProjectRoute
@@ -73,8 +68,8 @@ object Screen {
     const val EDIT_TASK_ASSIGNEES = "edit_task/{taskId}/assignees"
     const val EDIT_TASK_PROJECT = "edit_task/{taskId}/project"
     const val EDIT_TASK_DATE = "edit_task/{taskId}/date"
-    const val ADD_PROJECT_PARTICIPANT = "add_project_participant?projectId={projectId}"
 
+    const val ADD_PROJECT_PARTICIPANT = "add_project_participant?projectId={projectId}"
     fun addProjectParticipant(projectId: String = "") = "add_project_participant?projectId=$projectId"
 }
 
@@ -91,8 +86,6 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val authRepository = remember { FirebaseAuthRepositoryImpl() }
 
-                    // false — безопасный дефолт: если Firebase упал на старте, пользователь
-                    // увидит AuthScreen, а не «Системную ошибку» на TasksScreen.
                     var isAuthenticated by remember {
                         mutableStateOf(
                             runCatching { authRepository.getCurrentUserUid() != null }
@@ -107,10 +100,11 @@ class MainActivity : ComponentActivity() {
 
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
                         val currentRoute = navBackStackEntry?.destination?.route
+
                         val showBottomBar =
                             currentRoute == Screen.TASKS ||
-                                currentRoute == Screen.PROJECTS ||
-                                currentRoute == Screen.PROJECT_TASKS
+                                    currentRoute == Screen.PROJECTS ||
+                                    currentRoute == Screen.PROJECT_TASKS
 
                         Column(Modifier.fillMaxSize()) {
                             NavHost(
@@ -118,14 +112,13 @@ class MainActivity : ComponentActivity() {
                                 startDestination = Screen.TASKS,
                                 modifier = Modifier.weight(1f),
                             ) {
+                                // Мои задачи
                                 composable(Screen.TASKS) {
                                     TasksRoute(
                                         viewModel = tasksViewModel,
                                         onNavigateToCreateTask = { navController.navigate(Screen.CREATE_TASK) },
                                         onNavigateToTaskDetail = { taskId ->
-                                            navController.navigate(
-                                                "task_detail/$taskId",
-                                            )
+                                            navController.navigate("task_detail/$taskId")
                                         },
                                         onNavigateToProjects = { navController.navigateToTab(Screen.PROJECTS) },
                                         onNavigateToProfile = { },
@@ -239,7 +232,6 @@ class MainActivity : ComponentActivity() {
                                         backStackEntry.arguments?.getString("projectId").orEmpty()
 
                                     if (projectId.isBlank()) {
-                                        // FIX: Безопасное получение backStackEntry, чтобы избежать краша
                                         val createProjectEntry =
                                             remember(backStackEntry) {
                                                 runCatching { navController.getBackStackEntry(Screen.CREATE_PROJECT) }.getOrNull()
@@ -256,7 +248,6 @@ class MainActivity : ComponentActivity() {
                                                 viewModel = addParticipantViewModel,
                                             )
                                         } else {
-                                            // Fallback на случай непредвиденной ситуации
                                             AddParticipantRoute(
                                                 projectId = "",
                                                 onBackClick = { navController.popBackStack() },
@@ -264,7 +255,6 @@ class MainActivity : ComponentActivity() {
                                             )
                                         }
                                     } else {
-                                        // Edit-flow для существующего проекта (свой VM).
                                         AddParticipantRoute(
                                             projectId = projectId,
                                             onBackClick = { navController.popBackStack() },
@@ -304,16 +294,12 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                // Редактирование задачи
+                                // ИСПРАВЛЕНО: Редактирование задачи (добавлен backStackEntry и реальные навигации)
                                 composable(
                                     route = Screen.EDIT_TASK,
-                                    arguments =
-                                        listOf(
-                                            navArgument("taskId") {
-                                                type = NavType.StringType
-                                            },
-                                        ),
-                                ) {
+                                    arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
+                                ) { backStackEntry ->
+                                    val taskId = backStackEntry.arguments?.getString("taskId").orEmpty()
                                     EditTaskRoute(
                                         onNavigateBack = { navController.popBackStack() },
                                         onTaskSaved = {
@@ -324,21 +310,20 @@ class MainActivity : ComponentActivity() {
                                             tasksViewModel.refresh()
                                             navController.popBackStack()
                                         },
-                                        onNavigateToAssignees = { },
-                                        onNavigateToProject = { },
-                                        onNavigateToDate = { },
+                                        onNavigateToAssignees = { navController.navigate("edit_task/$taskId/assignees") },
+                                        onNavigateToProject = { navController.navigate("edit_task/$taskId/project") },
+                                        onNavigateToDate = { navController.navigate("edit_task/$taskId/date") },
                                     )
                                 }
 
-                                // Редактирование задачи
+                                // Выбор исполнителей при редактировании задачи
                                 composable(
                                     route = Screen.EDIT_TASK_ASSIGNEES,
                                     arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
                                 ) {
-                                    val parentEntry =
-                                        remember(it) {
-                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
-                                        }
+                                    val parentEntry = remember(it) {
+                                        navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                    }
                                     val editViewModel: EditTaskViewModel = viewModel(parentEntry)
                                     val state by editViewModel.state.collectAsStateWithLifecycle()
 
@@ -354,15 +339,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                // выбор даты при редактировании задачи
+                                // Выбор даты при редактировании задачи
                                 composable(
                                     route = Screen.EDIT_TASK_DATE,
                                     arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
                                 ) {
-                                    val parentEntry =
-                                        remember(it) {
-                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
-                                        }
+                                    val parentEntry = remember(it) {
+                                        navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                    }
                                     val editViewModel: EditTaskViewModel = viewModel(parentEntry)
                                     val state by editViewModel.state.collectAsStateWithLifecycle()
 
@@ -378,15 +362,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                // выбор проекта при редактировании задачи
+                                // Выбор проекта при редактировании задачи
                                 composable(
                                     route = Screen.EDIT_TASK_PROJECT,
                                     arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
                                 ) {
-                                    val parentEntry =
-                                        remember(it) {
-                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
-                                        }
+                                    val parentEntry = remember(it) {
+                                        navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                    }
                                     val editViewModel: EditTaskViewModel = viewModel(parentEntry)
                                     val state by editViewModel.state.collectAsStateWithLifecycle()
 
@@ -402,7 +385,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                // Выбор исполнителей
+                                // Выбор исполнителей (Создание)
                                 composable(Screen.CHOOSE_ASSIGNEE) {
                                     val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
                                     ChooseAssigneeRoute(
@@ -414,11 +397,10 @@ class MainActivity : ComponentActivity() {
                                             createTaskViewModel.confirmAssigneeSelection(assignees)
                                             navController.popBackStack()
                                         },
-                                        // viewModel = createTaskViewModel,
                                     )
                                 }
 
-                                // Выбор проекта
+                                // Выбор проекта (Создание)
                                 composable(Screen.CHOOSE_PROJECT) {
                                     val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
                                     ChooseProjectRoute(
@@ -430,11 +412,10 @@ class MainActivity : ComponentActivity() {
                                             createTaskViewModel.confirmProjectSelection(project)
                                             navController.popBackStack()
                                         },
-                                        // viewModel = createTaskViewModel,
                                     )
                                 }
 
-                                // Выбор даты
+                                // Выбор даты (Создание)
                                 composable(Screen.CHOOSE_DATE) {
                                     val createState by createTaskViewModel.state.collectAsStateWithLifecycle()
                                     ChooseDateRoute(
@@ -446,10 +427,11 @@ class MainActivity : ComponentActivity() {
                                             createTaskViewModel.confirmDateSelection(date)
                                             navController.popBackStack()
                                         },
-                                        // viewModel = createTaskViewModel,
                                     )
                                 }
                             }
+
+                            // Нижняя панель навигации
                             if (showBottomBar) {
                                 CoFlowBottomNavigationBar(
                                     items =
@@ -465,7 +447,7 @@ class MainActivity : ComponentActivity() {
                                                 stringResource(R.string.navigation_projects),
                                                 selected =
                                                     currentRoute == Screen.PROJECTS ||
-                                                        currentRoute == Screen.PROJECT_TASKS,
+                                                            currentRoute == Screen.PROJECT_TASKS,
                                                 onClick = { navController.navigateToTab(Screen.PROJECTS) },
                                             ),
                                             NavItem(
@@ -475,9 +457,7 @@ class MainActivity : ComponentActivity() {
                                                 onClick = { },
                                             ),
                                         ),
-                                    modifier =
-                                        Modifier
-                                            .navigationBarsPadding(),
+                                    modifier = Modifier.navigationBarsPadding(),
                                 )
                             }
                         }
