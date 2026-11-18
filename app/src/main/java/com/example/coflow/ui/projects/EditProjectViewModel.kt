@@ -17,6 +17,7 @@ import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.UserRepository
 import com.example.coflow.repositories.dto.MembershipUpdateDto
 import com.example.coflow.repositories.dto.ProjectUpdateDto
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,6 +65,8 @@ class EditProjectViewModel(
     private val _state = MutableStateFlow(EditProjectUiState())
     val state: StateFlow<EditProjectUiState> = _state.asStateFlow()
 
+    private var membersObserverJob: Job? = null
+
     private val projectId: String = savedStateHandle.get<String>("projectId").orEmpty()
 
     // Кэш пользователей, чтобы не дёргать Firestore повторно
@@ -93,21 +96,32 @@ class EditProjectViewModel(
                         _state.update { it.copyError(error) }
                         return@launch
                     }
-                val memberships =
-                    membershipRepository.getByProjectId(projectId).getOrElse { error ->
-                        _state.update { it.copyError(error) }
-                        return@launch
-                    }
-                val membersUi = memberships.map { buildMemberUi(it, currentUid) }
 
+                // Загружаем проект, а участников будем слушать в реальном времени
                 _state.update {
                     it.copy(
                         projectId = project.id,
                         title = project.title,
                         description = project.description,
-                        members = membersUi,
                     )
                 }
+
+                // СИНХРОНИЗАЦИЯ: Подписываемся на изменения участников
+                membersObserverJob?.cancel()
+                membersObserverJob =
+                    viewModelScope.launch {
+                        membershipRepository.observeByProjectId(projectId).collect { result ->
+                            result.fold(
+                                onSuccess = { memberships ->
+                                    val membersUi = memberships.map { buildMemberUi(it, currentUid) }
+                                    _state.update { it.copy(members = membersUi) }
+                                },
+                                onFailure = { error ->
+                                    _state.update { it.copyError(error) }
+                                },
+                            )
+                        }
+                    }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

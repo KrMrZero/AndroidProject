@@ -24,8 +24,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +98,7 @@ fun ProjectTasksRoute(
         onGroupingChange = viewModel::onGroupingChange,
         onFilterChange = viewModel::onFilterChange,
         onToggleGroup = viewModel::onToggleGroup,
+        onClearError = viewModel::clearError,
     )
 }
 
@@ -112,7 +115,37 @@ fun ProjectTasksScreen(
     onGroupingChange: (ProjectTaskGrouping) -> Unit,
     onFilterChange: (ProjectTaskFilterType) -> Unit,
     onToggleGroup: (String) -> Unit,
+    onClearError: () -> Unit,
 ) {
+    // Обработка ошибки
+    val errorText =
+        when {
+            state.errorMessageResId != null && state.errorMessage != null -> {
+                stringResource(state.errorMessageResId, state.errorMessage)
+            }
+
+            state.errorMessageResId != null -> {
+                stringResource(state.errorMessageResId)
+            }
+
+            else -> {
+                state.errorMessage
+            }
+        }
+
+    if (errorText != null) {
+        AlertDialog(
+            onDismissRequest = onClearError,
+            title = { Text(stringResource(R.string.error_title), color = CoFlowColors.Error) },
+            text = { Text(errorText) },
+            confirmButton = {
+                TextButton(onClick = onClearError) {
+                    Text(stringResource(R.string.ok_button), color = CoFlowColors.Blue)
+                }
+            },
+        )
+    }
+
     val scrollState = rememberScrollState()
     BackHandler(onBack = onBackClick)
 
@@ -586,6 +619,7 @@ private fun ProjectTasksScreenPreview() {
             onFilterChange = {},
             onToggleGroup = {},
             onNavigateToProjectDetail = {},
+            onClearError = {},
         )
     }
 }

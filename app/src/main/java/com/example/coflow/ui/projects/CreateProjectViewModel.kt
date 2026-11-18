@@ -2,6 +2,7 @@ package com.example.coflow.ui.projects
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.coflow.R
 import com.example.coflow.models.Role
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
@@ -43,6 +44,7 @@ data class CreateProjectUiState(
     val participantPendingRemoval: ProjectParticipant? = null,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
+    val errorMessageResId: Int? = null,
 ) {
     val canCreate: Boolean
         get() = title.isNotBlank() && !isSubmitting
@@ -96,7 +98,7 @@ class CreateProjectViewModel(
         val title = current.title.trim()
 
         if (title.isBlank()) {
-            _state.update { it.copy(errorMessage = "Название проекта не может быть пустым") }
+            _state.update { it.copy(errorMessageResId = R.string.error_empty_project_title) }
             return
         }
 
@@ -111,7 +113,7 @@ class CreateProjectViewModel(
                     _state.update {
                         it.copy(
                             isSubmitting = false,
-                            errorMessage = "Пользователь не авторизован",
+                            errorMessageResId = R.string.error_not_authorized,
                         )
                     }
                     return@launch
@@ -139,7 +141,8 @@ class CreateProjectViewModel(
                             _state.update {
                                 it.copy(
                                     isSubmitting = false,
-                                    errorMessage = error.message ?: "Ошибка создания проекта",
+                                    errorMessage = error.message,
+                                    errorMessageResId = if (error.message == null) R.string.error_create_project else null,
                                 )
                             }
                         },
@@ -150,7 +153,8 @@ class CreateProjectViewModel(
                 _state.update {
                     it.copy(
                         isSubmitting = false,
-                        errorMessage = e.message ?: "Системная ошибка при создании проекта",
+                        errorMessage = e.message,
+                        errorMessageResId = if (e.message == null) R.string.error_system else null,
                     )
                 }
             }

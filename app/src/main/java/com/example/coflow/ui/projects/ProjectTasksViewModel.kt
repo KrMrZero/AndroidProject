@@ -11,6 +11,7 @@ import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
 import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
 import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.TaskRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,6 +79,8 @@ class ProjectTasksViewModel(
     private val _uiState = MutableStateFlow(ProjectTasksUiState(projectId = projectId))
     val uiState: StateFlow<ProjectTasksUiState> = _uiState.asStateFlow()
 
+    private var observeJob: Job? = null
+
     init {
         _uiState.update { recalculate(it) }
         loadProjectTitle()
@@ -85,52 +88,69 @@ class ProjectTasksViewModel(
     }
 
     private fun loadTasks() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            val currentUid = authRepository.getCurrentUserUid().orEmpty()
+        observeJob?.cancel() // Отменяем предыдущую подписку, если была
+        observeJob =
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoading = true, errorMessage = null, errorMessageResId = null) }
+                val currentUid = authRepository.getCurrentUserUid().orEmpty()
 
-            // Запрашиваем задачи конкретно этого проекта из Firebase
-            val result = taskRepository.getByProjectId(projectId)
+                // СИНХРОНИЗАЦИЯ: Подписываемся на изменения задач проекта
+                taskRepository.observeByProjectId(projectId).collect { result ->
+                    result.fold(
+                        onSuccess = { tasks ->
+                            val mappedTasks =
+                                tasks.map { task ->
+                                    ProjectTaskRowUi(
+                                        id = task.id,
+                                        title = task.title,
+                                        projectName = "",
+                                        authorId = task.authorId,
+                                        assigneeId = task.assigneeId,
+                                        dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
+                                        status = task.status,
+                                        isDone = task.status == TaskStatus.DONE,
+                                        isOverdue =
+                                            task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
+                                        isMine = task.authorId == currentUid || task.assigneeId == currentUid,
+                                    )
+                                }
 
-            result
-                .onSuccess { tasks ->
-                    // Превращаем данные из базы в наш UI-формат
-                    val mappedTasks =
-                        tasks.map { task ->
-                            ProjectTaskRowUi(
-                                id = task.id,
-                                title = task.title,
-                                projectName = "", // На этом экране не нужно, мы и так внутри проекта
-                                authorId = task.authorId,
-                                assigneeId = task.assigneeId,
-                                dueDateFormatted = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy")),
-                                status = task.status,
-                                isDone = task.status == TaskStatus.DONE,
-                                isOverdue = task.deadline.isBefore(LocalDateTime.now(ZoneOffset.UTC)) && task.status != TaskStatus.DONE,
-                                isMine = task.authorId == currentUid || task.assigneeId == currentUid,
-                            )
-                        }
-
-                    // Обновляем стейт (теперь группы пересчитаются с реальными задачами)
-                    _uiState.update {
-                        it.copy(
-                            allTasks = mappedTasks,
-                            isLoading = false,
-                        )
-                    }
-                    _uiState.update { recalculate(it) }
-                }.onFailure { error ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = error.message) }
+                            _uiState.update {
+                                it.copy(
+                                    allTasks = mappedTasks,
+                                    isLoading = false,
+                                )
+                            }
+                            _uiState.update { recalculate(it) }
+                        },
+                        onFailure = { error ->
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    errorMessage = error.message,
+                                    errorMessageResId = if (error.message == null) R.string.error_load_task else null,
+                                )
+                            }
+                        },
+                    )
                 }
-        }
+            }
     }
 
     private fun loadProjectTitle() {
         viewModelScope.launch {
             val result = projectRepository.getById(projectId)
-            result.onSuccess { project ->
-                _uiState.update { it.copy(projectTitle = project.title) }
-            }
+            result
+                .onSuccess { project ->
+                    _uiState.update { it.copy(projectTitle = project.title) }
+                }.onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            errorMessage = error.message,
+                            errorMessageResId = if (error.message == null) R.string.error_load_project_list else null,
+                        )
+                    }
+                }
         }
     }
 
@@ -238,5 +258,9 @@ class ProjectTasksViewModel(
                 tasks = done,
             ),
         )
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null, errorMessageResId = null) }
     }
 }

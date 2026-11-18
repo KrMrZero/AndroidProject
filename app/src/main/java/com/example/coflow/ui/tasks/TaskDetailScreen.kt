@@ -234,8 +234,9 @@ fun TaskDetailScreen(
 
             // Нижняя кнопка
             if (state.showBottomAction) {
+                val actionText = state.bottomActionTextResId?.let { stringResource(it) } ?: ""
                 CoFlowPrimaryButton(
-                    text = state.bottomActionText,
+                    text = actionText,
                     onClick = onBottomActionClick,
                     modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
                 )
@@ -372,7 +373,7 @@ fun TaskDetailScreen_InProgressOverdue_Preview() {
                     isOverdue = true, // Дата красная
                     canEdit = false,
                     showBottomAction = true,
-                    bottomActionText = "Выполнить",
+                    bottomActionTextResId = R.string.task_action_button_complete,
                     isLoading = false, // Важно для превью!
                 ),
             onBackClick = {},
@@ -400,7 +401,7 @@ fun TaskDetailScreen_Todo_Preview() {
                     isOverdue = false,
                     canEdit = true, // Покажет карандаш
                     showBottomAction = true,
-                    bottomActionText = "Взять задачу",
+                    bottomActionTextResId = R.string.task_action_button_take,
                     isLoading = false,
                 ),
             onBackClick = {},
@@ -428,7 +429,7 @@ private fun TaskDetailScreen_Done_Preview() {
                     isOverdue = false,
                     canEdit = false, // Карандаша нет
                     showBottomAction = false, // Кнопки внизу нет
-                    bottomActionText = "",
+                    bottomActionTextResId = null,
                     isLoading = false,
                 ),
             onBackClick = {},

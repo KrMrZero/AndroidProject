@@ -68,8 +68,24 @@
     <string name="auth_error_invalid_contact">Check email or phone format</string>
     <string name="auth_error_short_password">Minimum 8 characters</string>
     <string name="auth_error_not_equal_password">The passwords do not match.</string>
+    <string name="auth_error_username_empty">Enter username</string>
+    <string name="auth_error_username_short">Username is too short</string>
+    <string name="auth_error_contact_empty">Enter email</string>
+    <string name="auth_error_password_digit">Password must contain at least one digit</string>
+    <string name="auth_error_password_letter">Password must contain at least one letter</string>
     <string name="task_outdated">Expired</string>
     <string name="error_project_id_missing">Project ID not provided</string>
+
+    <string name="error_load_task">Error loading task</string>
+    <string name="error_update_task">Error updating task</string>
+    <string name="error_delete_task">Error deleting task</string>
+    <string name="error_empty_task_title">Task title cannot be empty</string>
+    <string name="error_create_task">Error creating task</string>
+    <string name="error_load_assignees">Error loading assignees</string>
+    <string name="error_load_project_list">Error loading projects</string>
+
+    <string name="error_empty_project_title">Project title cannot be empty</string>
+    <string name="error_create_project">Error creating project</string>
 
     <!-- Группы -->
     <string name="error_not_authorized">User not logged in</string>
