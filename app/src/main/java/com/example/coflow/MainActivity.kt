@@ -70,6 +70,7 @@ object Screen {
     const val EDIT_TASK_DATE = "edit_task/{taskId}/date"
 
     const val ADD_PROJECT_PARTICIPANT = "add_project_participant?projectId={projectId}"
+
     fun addProjectParticipant(projectId: String = "") = "add_project_participant?projectId=$projectId"
 }
 
@@ -103,8 +104,8 @@ class MainActivity : ComponentActivity() {
 
                         val showBottomBar =
                             currentRoute == Screen.TASKS ||
-                                    currentRoute == Screen.PROJECTS ||
-                                    currentRoute == Screen.PROJECT_TASKS
+                                currentRoute == Screen.PROJECTS ||
+                                currentRoute == Screen.PROJECT_TASKS
 
                         Column(Modifier.fillMaxSize()) {
                             NavHost(
@@ -321,9 +322,10 @@ class MainActivity : ComponentActivity() {
                                     route = Screen.EDIT_TASK_ASSIGNEES,
                                     arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
                                 ) {
-                                    val parentEntry = remember(it) {
-                                        navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
-                                    }
+                                    val parentEntry =
+                                        remember(it) {
+                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                        }
                                     val editViewModel: EditTaskViewModel = viewModel(parentEntry)
                                     val state by editViewModel.state.collectAsStateWithLifecycle()
 
@@ -344,9 +346,10 @@ class MainActivity : ComponentActivity() {
                                     route = Screen.EDIT_TASK_DATE,
                                     arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
                                 ) {
-                                    val parentEntry = remember(it) {
-                                        navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
-                                    }
+                                    val parentEntry =
+                                        remember(it) {
+                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                        }
                                     val editViewModel: EditTaskViewModel = viewModel(parentEntry)
                                     val state by editViewModel.state.collectAsStateWithLifecycle()
 
@@ -367,9 +370,10 @@ class MainActivity : ComponentActivity() {
                                     route = Screen.EDIT_TASK_PROJECT,
                                     arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
                                 ) {
-                                    val parentEntry = remember(it) {
-                                        navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
-                                    }
+                                    val parentEntry =
+                                        remember(it) {
+                                            navController.getBackStackEntry("edit_task/${it.arguments?.getString("taskId")}")
+                                        }
                                     val editViewModel: EditTaskViewModel = viewModel(parentEntry)
                                     val state by editViewModel.state.collectAsStateWithLifecycle()
 
@@ -447,7 +451,7 @@ class MainActivity : ComponentActivity() {
                                                 stringResource(R.string.navigation_projects),
                                                 selected =
                                                     currentRoute == Screen.PROJECTS ||
-                                                            currentRoute == Screen.PROJECT_TASKS,
+                                                        currentRoute == Screen.PROJECT_TASKS,
                                                 onClick = { navController.navigateToTab(Screen.PROJECTS) },
                                             ),
                                             NavItem(
