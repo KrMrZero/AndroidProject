@@ -157,10 +157,7 @@ fun ProjectTasksScreen(
 
             // Нижняя панель (Фильтры, FAB и НИЖНЕЕ МЕНЮ)
             Column(
-                modifier =
-                    Modifier.fillMaxWidth().padding(
-                        bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 2.dp,
-                    ),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), // ← маленький фиксированный
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(
@@ -179,7 +176,7 @@ fun ProjectTasksScreen(
                     CoFlowFabButton(onClick = onNavigateToCreateTask, iconName = "task_plus")
                 }
 
-                Spacer(Modifier.height(7.dp))
+//                Spacer(Modifier.height(7.dp))
             }
         }
     }
