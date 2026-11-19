@@ -4,20 +4,17 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
-import com.example.coflow.models.NotificationType
 import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.notifications.NotificationSender
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
-import com.example.coflow.repositories.FirebaseNotificationRepositoryImpl
 import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
 import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
 import com.example.coflow.repositories.FirebaseUserRepositoryImpl
-import com.example.coflow.repositories.NotificationRepository
 import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.TaskRepository
 import com.example.coflow.repositories.UserRepository
-import com.example.coflow.repositories.dto.NotificationAddDto
 import com.example.coflow.repositories.dto.TaskUpdateDto
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,7 +57,7 @@ class TaskDetailScreenViewModel(
     private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
-    private val notificationRepository: NotificationRepository = FirebaseNotificationRepositoryImpl(),
+    private val notificationSender: NotificationSender = NotificationSender(),
 ) : ViewModel() {
     // События для UI (например, навигация или показ Toast)
     private val _uiEvent = Channel<UiEvent>()
@@ -247,42 +244,17 @@ class TaskDetailScreenViewModel(
         newStatus: TaskStatus,
     ) {
         val task = loadedTask ?: return
-        val authorId = task.authorId
-        if (authorId.isBlank() || authorId == actorId) return
+        if (task.authorId.isBlank()) return
 
-        val actorName =
-            userRepository
-                .getById(actorId)
-                .getOrNull()
-                ?.name
-                ?.ifBlank { "Пользователь" }
-                ?: "Пользователь"
-
-        val isDone = newStatus == TaskStatus.DONE
-        val type = if (isDone) NotificationType.TASK_DONE else NotificationType.TASK_TAKEN
-        val title = if (isDone) "Задачу выполнили" else "Задачу взяли в работу"
-        val message =
-            if (isDone) {
-                "$actorName выполнил вашу задачу «${task.title}»"
-            } else {
-                "$actorName взял вашу задачу «${task.title}» в работу"
-            }
-
-        runCatching {
-            notificationRepository.create(
-                NotificationAddDto(
-                    userId = authorId,
-                    type = type,
-                    title = title,
-                    message = message,
-                    projectId = task.projectId,
-                    projectName = _state.value.projectName,
-                    entityId = task.id,
-                    actorId = actorId,
-                    actorName = actorName,
-                ),
-            )
-        }
+        notificationSender.taskStatusChanged(
+            taskId = task.id,
+            taskTitle = task.title,
+            projectId = task.projectId,
+            projectName = _state.value.projectName,
+            actorId = actorId,
+            authorId = task.authorId,
+            isDone = newStatus == TaskStatus.DONE,
+        )
     }
 
     // События, которые ViewModel отправляет в Route

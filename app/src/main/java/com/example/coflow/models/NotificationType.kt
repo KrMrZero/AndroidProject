@@ -16,11 +16,17 @@ enum class NotificationType(
     /** Пользователю назначили задачу. */
     TASK_ASSIGNED("task_assigned"),
 
+    /** Пользователя сняли с задачи. */
+    TASK_UNASSIGNED("task_unassigned"),
+
     /** Задачу автора взяли в работу. */
     TASK_TAKEN("task_taken"),
 
     /** Задачу автора выполнили. */
     TASK_DONE("task_done"),
+
+    /** Задачу удалили. */
+    TASK_DELETED("task_deleted"),
 
     /** Скоро срок задачи (пока не создаётся: для этого нужен планировщик). */
     TASK_DEADLINE("task_deadline"),
@@ -28,11 +34,17 @@ enum class NotificationType(
     /** Пользователя добавили в проект. */
     ADDED_TO_PROJECT("added_to_project"),
 
+    /** Пользователя убрали из проекта. */
+    REMOVED_FROM_PROJECT("removed_from_project"),
+
     /** Изменились данные проекта. */
     PROJECT_UPDATED("project_updated"),
 
     /** Изменилась роль пользователя в проекте. */
     ROLE_CHANGED("role_changed"),
+
+    /** Проект удалили. */
+    PROJECT_DELETED("project_deleted"),
     ;
 
     companion object {

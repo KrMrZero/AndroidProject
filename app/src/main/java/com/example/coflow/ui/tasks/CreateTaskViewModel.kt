@@ -3,22 +3,19 @@ package com.example.coflow.ui.tasks
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.coflow.models.NotificationType
 import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.notifications.NotificationSender
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.repositories.FirebaseMembershipRepositoryImpl
-import com.example.coflow.repositories.FirebaseNotificationRepositoryImpl
 import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
 import com.example.coflow.repositories.FirebaseTaskRepositoryImpl
 import com.example.coflow.repositories.FirebaseUserRepositoryImpl
 import com.example.coflow.repositories.MembershipRepository
-import com.example.coflow.repositories.NotificationRepository
 import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.TaskRepository
 import com.example.coflow.repositories.UserRepository
-import com.example.coflow.repositories.dto.NotificationAddDto
 import com.example.coflow.repositories.dto.TaskAddDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -135,7 +132,7 @@ class CreateTaskViewModel(
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
     private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
-    private val notificationRepository: NotificationRepository = FirebaseNotificationRepositoryImpl(),
+    private val notificationSender: NotificationSender = NotificationSender(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(CreateTaskUiState())
     val state: StateFlow<CreateTaskUiState> = _state.asStateFlow()
@@ -464,8 +461,8 @@ class CreateTaskViewModel(
      * Уведомляет исполнителей о назначенной задаче.
      *
      * Запись создаёт клиент после успешного сохранения задачи. Ошибка
-     * уведомления не должна отменять создание задачи, поэтому результат
-     * намеренно игнорируется.
+     * уведомления не должна отменять создание задачи, поэтому
+     * [NotificationSender] не пробрасывает её наружу.
      */
     private suspend fun notifyAssignees(
         task: TaskModel,
@@ -474,36 +471,13 @@ class CreateTaskViewModel(
     ) {
         if (authorId.isBlank()) return
 
-        val recipients =
-            _state.value.assignees
-                .map { it.id }
-                .filter { it.isNotBlank() && it != authorId }
-                .distinct()
-        if (recipients.isEmpty()) return
-
-        val actorName =
-            userRepository
-                .getById(authorId)
-                .getOrNull()
-                ?.name
-                ?.ifBlank { "Пользователь" }
-                ?: "Пользователь"
-
-        runCatching {
-            notificationRepository.createForUsers(
-                userIds = recipients,
-                notification =
-                    NotificationAddDto(
-                        type = NotificationType.TASK_ASSIGNED,
-                        title = "Вам назначили задачу",
-                        message = "$actorName назначил вам задачу «${task.title}»",
-                        projectId = task.projectId,
-                        projectName = projectTitle,
-                        entityId = task.id,
-                        actorId = authorId,
-                        actorName = actorName,
-                    ),
-            )
-        }
+        notificationSender.taskAssigned(
+            taskId = task.id,
+            taskTitle = task.title,
+            projectId = task.projectId,
+            projectName = projectTitle,
+            actorId = authorId,
+            recipientIds = _state.value.assignees.map { it.id },
+        )
     }
 }

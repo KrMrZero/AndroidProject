@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.notifications.NotificationSender
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
@@ -78,6 +79,7 @@ class TasksScreenViewModel(
     private val taskRepository: TaskRepository = FirebaseTaskRepositoryImpl(),
     private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val notificationSender: NotificationSender = NotificationSender(),
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
@@ -309,7 +311,19 @@ class TasksScreenViewModel(
                         assigneeId = if (newStatus == TaskStatus.IN_PROGRESS) uid else null,
                     )
                 taskRepository.updateTask(task.id, updateDto).fold(
-                    onSuccess = { },
+                    onSuccess = {
+                        // Свайп — такой же способ смены статуса, как кнопка
+                        // в карточке задачи, поэтому автор тоже получает уведомление.
+                        notificationSender.taskStatusChanged(
+                            taskId = task.id,
+                            taskTitle = task.title,
+                            projectId = task.projectId,
+                            projectName = task.projectName,
+                            actorId = uid,
+                            authorId = task.authorId,
+                            isDone = newStatus == TaskStatus.DONE,
+                        )
+                    },
                     onFailure = { error ->
                         _uiState.update {
                             it.copy(
