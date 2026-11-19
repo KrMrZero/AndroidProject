@@ -70,6 +70,22 @@ class AuthViewModel(
             )
     }
 
+    /**
+     * Сбрасывает флаг успешной авторизации после перехода на основной экран.
+     *
+     * AuthViewModel живёт в Activity и переживает выход из аккаунта. Без сброса
+     * флаг остаётся `true`, и после логаута AuthRoute сразу снова отправляет
+     * пользователя на экран задач.
+     */
+    fun consumeAuthorization() {
+        _state.value =
+            _state.value.copy(
+                isAuthorized = false,
+                password = "",
+                confirmPassword = "",
+            )
+    }
+
     fun onSubmit() {
         if (_state.value.isSubmitting) return
 

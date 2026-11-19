@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
+import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.notifications.NotificationSender
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.repositories.FirebaseProjectRepositoryImpl
@@ -55,6 +57,7 @@ class TaskDetailScreenViewModel(
     private val projectRepository: ProjectRepository = FirebaseProjectRepositoryImpl(),
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val notificationSender: NotificationSender = NotificationSender(),
 ) : ViewModel() {
     // События для UI (например, навигация или показ Toast)
     private val _uiEvent = Channel<UiEvent>()
@@ -65,6 +68,9 @@ class TaskDetailScreenViewModel(
 
     // Читаем taskId из маршрута "task_detail/{taskId}"
     private val taskId: String = savedStateHandle.get<String>("taskId").orEmpty()
+
+    /** Последняя загруженная задача: нужна для уведомлений при смене статуса. */
+    private var loadedTask: TaskModel? = null
 
     init {
         if (taskId.isNotBlank()) {
@@ -91,6 +97,8 @@ class TaskDetailScreenViewModel(
                     _state.update { it.copy(isLoading = false, errorMessage = error.message) }
                     return@launch
                 }
+
+            loadedTask = task
 
             // 2. Подгружаем связанные данные (проект, автора, исполнителя)
             val project =
@@ -199,6 +207,7 @@ class TaskDetailScreenViewModel(
 
             result.fold(
                 onSuccess = {
+                    notifyStatusChanged(currentUid, newStatus)
                     loadTask() // Успех: перезагружаем данные
                 },
                 onFailure = { error ->
@@ -222,6 +231,30 @@ class TaskDetailScreenViewModel(
 
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
+    }
+
+    /**
+     * Уведомляет автора задачи о том, что её взяли в работу или выполнили.
+     *
+     * Пишем из клиента после успешного обновления статуса. Себя не уведомляем,
+     * ошибку записи не показываем — она не должна мешать основному действию.
+     */
+    private suspend fun notifyStatusChanged(
+        actorId: String,
+        newStatus: TaskStatus,
+    ) {
+        val task = loadedTask ?: return
+        if (task.authorId.isBlank()) return
+
+        notificationSender.taskStatusChanged(
+            taskId = task.id,
+            taskTitle = task.title,
+            projectId = task.projectId,
+            projectName = _state.value.projectName,
+            actorId = actorId,
+            authorId = task.authorId,
+            isDone = newStatus == TaskStatus.DONE,
+        )
     }
 
     // События, которые ViewModel отправляет в Route

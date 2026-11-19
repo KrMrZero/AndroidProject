@@ -73,6 +73,8 @@ fun ProjectsRoute(
     onNavigateToCreateProject: () -> Unit,
     onNavigateToTasks: () -> Unit,
     onNavigateToProjectTasks: (String) -> Unit,
+    onNavigateToNotifications: () -> Unit,
+    hasUnreadNotifications: Boolean = false,
     viewModel: ProjectsViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -85,6 +87,8 @@ fun ProjectsRoute(
         onNavigateToCreateProject = onNavigateToCreateProject,
         onNavigateToTasks = onNavigateToTasks,
         onNavigateToProjectTasks = onNavigateToProjectTasks,
+        onNavigateToNotifications = onNavigateToNotifications,
+        hasUnreadNotifications = hasUnreadNotifications,
     )
 }
 
@@ -98,6 +102,8 @@ fun ProjectsScreen(
     onNavigateToCreateProject: () -> Unit,
     onNavigateToTasks: () -> Unit,
     onNavigateToProjectTasks: (String) -> Unit,
+    onNavigateToNotifications: () -> Unit,
+    hasUnreadNotifications: Boolean = false,
 ) {
     // Стейт для скролла и скрытия нижней панели
     val listState = rememberLazyListState()
@@ -115,7 +121,10 @@ fun ProjectsScreen(
             title = stringResource(R.string.projects_header),
             subtitle = "${state.activeCount} ${stringResource(R.string.my_tasks_active)}",
             trailingContent = {
-                NotificationBell()
+                NotificationBell(
+                    hasUnread = hasUnreadNotifications,
+                    onClick = onNavigateToNotifications,
+                )
             },
         )
 
@@ -378,6 +387,7 @@ private fun ProjectsScreenPreview() {
             onNavigateToCreateProject = {},
             onNavigateToTasks = {},
             onNavigateToProjectTasks = {},
+            onNavigateToNotifications = {},
         )
     }
 }
