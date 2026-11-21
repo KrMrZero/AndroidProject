@@ -21,6 +21,7 @@ import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.TaskRepository
 import com.example.coflow.repositories.UserRepository
 import com.example.coflow.repositories.dto.TaskUpdateDto
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -114,6 +115,8 @@ class EditTaskViewModel(
     private val _state = MutableStateFlow(EditTaskUiState())
     val state: StateFlow<EditTaskUiState> = _state.asStateFlow()
 
+    private var taskObserverJob: Job? = null
+
     // Читаем taskId напрямую из аргументов навигации "edit_task/{taskId}"
     val taskId = savedStateHandle.get<String>("taskId").orEmpty()
 
@@ -136,42 +139,81 @@ class EditTaskViewModel(
     }
 
     private fun loadTask() {
-        viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null) }
-            val currentUid = authRepository.getCurrentUserUid().orEmpty()
+        taskObserverJob?.cancel()
+        taskObserverJob =
+            viewModelScope.launch {
+                _state.update { it.copy(isLoading = true, errorMessage = null, errorMessageResId = null) }
+                val currentUid = authRepository.getCurrentUserUid().orEmpty()
 
-            // 1. Сама задача
-            val taskResult = taskRepository.getById(taskId)
-            val task =
-                taskResult.getOrElse { error ->
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = error.message ?: "Ошибка загрузки задачи",
-                        )
-                    }
-                    return@launch
-                }
+                taskRepository.observeById(taskId).collect { result ->
+                    result.fold(
+                        onSuccess = { task ->
+                            // Проверяем, первая ли это загрузка.
+                            // Если пользователь уже начал редактировать, мы не должны затирать его ввод.
+                            val isFirstLoad = _state.value.isLoading
 
-            // 2. Название проекта
-            val projectName =
-                if (task.projectId.isNotBlank()) {
-                    projectRepository
-                        .getById(task.projectId)
-                        .getOrNull()
-                        ?.title
-                        .orEmpty()
-                } else {
-                    ""
-                }
+                            if (isFirstLoad) {
+                                val projectName =
+                                    if (task.projectId.isNotBlank()) {
+                                        projectRepository
+                                            .getById(task.projectId)
+                                            .getOrNull()
+                                            ?.title
+                                            .orEmpty()
+                                    } else {
+                                        ""
+                                    }
 
-            // 4. Имена исполнителей
-            val assigneeNames = mutableListOf<String>()
-            if (task.assigneeId.isNotBlank()) {
-                val assigneeUser = userRepository.getById(task.assigneeId).getOrNull()
-                if (assigneeUser != null) {
-                    assigneeNames.add(
-                        if (assigneeUser.uid == currentUid) "Ты" else assigneeUser.name,
+                                val assigneeNames = mutableListOf<String>()
+                                if (task.assigneeId.isNotBlank()) {
+                                    val assigneeUser = userRepository.getById(task.assigneeId).getOrNull()
+                                    if (assigneeUser != null) {
+                                        assigneeNames.add(if (assigneeUser.uid == currentUid) "Ты" else assigneeUser.name)
+                                    }
+                                }
+
+                                val formattedDate = task.deadline.format(DateTimeFormatter.ofPattern("dd.MM.yy"))
+                                val parsedDeadline = task.deadline.toLocalDate()
+
+                                _state.update {
+                                    it.copy(
+                                        taskId = task.id,
+                                        title = task.title,
+                                        description = task.description,
+                                        assignees = assigneeNames.joinToString(", "),
+                                        project = projectName,
+                                        selectedProjectId = task.projectId,
+                                        pendingProject = projectName,
+                                        pendingProjectId = task.projectId,
+                                        dueDate = formattedDate,
+                                        selectedDueDate = parsedDeadline,
+                                        calendarMonth = YearMonth.from(parsedDeadline),
+                                        canSave = task.title.isNotBlank() && formattedDate.isNotBlank(),
+                                        isLoading = false,
+                                        pendingAssigneeIds =
+                                            task.assigneeId
+                                                .split(",")
+                                                .map { it.trim() }
+                                                .filter { it.isNotBlank() }
+                                                .toSet(),
+                                    )
+                                }
+                                loadAssignees(task.projectId)
+                            } else {
+                                // Если это обновление извне (например, кто-то изменил статус на другом экране),
+                                // просто обновляем стейт, чтобы не сбить текущее редактирование.
+                                _state.update { it.copy(isLoading = false) }
+                            }
+                        },
+                        onFailure = { error ->
+                            _state.update {
+                                it.copy(
+                                    isLoading = false,
+                                    errorMessage = error.message,
+                                    errorMessageResId = if (error.message == null) R.string.error_load_task else null,
+                                )
+                            }
+                        },
                     )
                 }
             }
@@ -264,7 +306,13 @@ class EditTaskViewModel(
                 }
                 _state.update { it.copy(allAssignees = assignees, isLoadingAssignees = false) }
             } catch (e: Exception) {
-                _state.update { it.copy(isLoadingAssignees = false, errorMessage = "Ошибка загрузки исполнителей: ${e.message}") }
+                _state.update {
+                    it.copy(
+                        isLoadingAssignees = false,
+                        errorMessage = e.message,
+                        errorMessageResId = if (e.message == null) R.string.error_load_assignees else null,
+                    )
+                }
             }
         }
     }
@@ -479,6 +527,7 @@ class EditTaskViewModel(
                         it.copy(
                             isSaving = false,
                             errorMessage = error.message,
+                            errorMessageResId = if (error.message == null) R.string.error_update_task else null,
                         )
                     }
                 },
@@ -564,7 +613,8 @@ class EditTaskViewModel(
                     _state.update {
                         it.copy(
                             isDeleting = false,
-                            errorMessage = error.message ?: "Ошибка удаления задачи",
+                            errorMessage = error.message,
+                            errorMessageResId = if (error.message == null) R.string.error_delete_task else null,
                         )
                     }
                 },

@@ -3,6 +3,7 @@ package com.example.coflow.ui.auth
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.coflow.R
 import com.example.coflow.models.UserModel
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
@@ -22,10 +23,10 @@ data class AuthUiState(
     val contact: String = "", // Почта или телефон
     val password: String = "", // Пароль
     val confirmPassword: String = "", // Подтверждение пароля
-    val usernameError: String? = null, // Ошибка имени
-    val contactError: String? = null,
-    val passwordError: String? = null,
-    val confirmError: String? = null,
+    val usernameError: Int? = null, // Ошибка имени
+    val contactError: Int? = null,
+    val passwordError: Int? = null,
+    val confirmError: Int? = null,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
     val currentUser: UserModel? = null,
@@ -94,9 +95,9 @@ class AuthViewModel(
         // Валидация имени (только для регистрации)
         val usernameError =
             if (current.mode == AuthMode.REGISTER && current.username.isBlank()) {
-                "Введите имя пользователя"
+                R.string.auth_error_username_empty
             } else if (current.mode == AuthMode.REGISTER && current.username.length < 2) {
-                "Имя слишком короткое"
+                R.string.auth_error_username_short
             } else {
                 null
             }
@@ -104,24 +105,24 @@ class AuthViewModel(
         // Валидация Email
         val contactError =
             when {
-                current.contact.isBlank() -> "Введите почту"
-                !Patterns.EMAIL_ADDRESS.matcher(current.contact).matches() -> "Неверный формат email"
+                current.contact.isBlank() -> R.string.auth_error_contact_empty
+                !Patterns.EMAIL_ADDRESS.matcher(current.contact).matches() -> R.string.auth_error_invalid_contact
                 else -> null
             }
 
         // Валидация пароля (минимум 8 символов, хотя бы одна буква и цифра)
         val passwordError =
             when {
-                current.mode == AuthMode.REGISTER && current.password.length < 8 -> "Пароль должен быть не менее 8 символов"
-                current.mode == AuthMode.REGISTER && !current.password.any { it.isDigit() } -> "Пароль должен содержать хотя бы одну цифру"
-                current.mode == AuthMode.REGISTER && !current.password.any { it.isLetter() } -> "Пароль должен содержать хотя бы одну букву"
+                current.mode == AuthMode.REGISTER && current.password.length < 8 -> R.string.auth_error_short_password
+                current.mode == AuthMode.REGISTER && !current.password.any { it.isDigit() } -> R.string.auth_error_password_digit
+                current.mode == AuthMode.REGISTER && !current.password.any { it.isLetter() } -> R.string.auth_error_password_letter
                 else -> null
             }
 
         // Валидация подтверждения пароля
         val confirmError =
             if (current.mode == AuthMode.REGISTER && current.password != current.confirmPassword) {
-                "Пароли не совпадают"
+                R.string.auth_error_not_equal_password
             } else {
                 null
             }

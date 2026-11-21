@@ -135,9 +135,14 @@ fun CreateProjectScreen(
                     onRemoveParticipantClick = onRemoveParticipantClick,
                 )
 
-                if (state.errorMessage != null) {
+                // Вычисляем текст ошибки: либо из ресурса, либо сырой текст
+                val errorText =
+                    state.errorMessageResId?.let { stringResource(it) }
+                        ?: state.errorMessage
+
+                if (errorText != null) {
                     Text(
-                        text = state.errorMessage,
+                        text = errorText,
                         modifier = Modifier.padding(horizontal = 4.dp),
                         fontSize = 12.sp,
                         color = CoFlowColors.Error,

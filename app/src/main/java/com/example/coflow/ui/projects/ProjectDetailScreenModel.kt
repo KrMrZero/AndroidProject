@@ -14,11 +14,10 @@ import com.example.coflow.repositories.MembershipRepository
 import com.example.coflow.repositories.ProjectRepository
 import com.example.coflow.repositories.UserRepository
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -75,6 +74,8 @@ class ProjectDetailScreenViewModel(
     private val _state = MutableStateFlow(ProjectDetailUiState())
     val state: StateFlow<ProjectDetailUiState> = _state.asStateFlow()
 
+    private var membersObserverJob: Job? = null
+
     private val projectId: String = savedStateHandle.get<String>("projectId").orEmpty()
 
     init {
@@ -115,34 +116,7 @@ class ProjectDetailScreenViewModel(
                         ?.let { userRepository.getById(it).getOrNull() }
                 val ownerName = ownerUser?.name.orEmpty()
 
-                val memberships = membershipRepository.getByProjectId(projectId).getOrDefault(emptyList())
-
-                val participantsList = mutableListOf<ProjectParticipantUi>()
-                ownerUser?.let {
-                    participantsList +=
-                        ProjectParticipantUi(
-                            uid = it.uid,
-                            name = it.name,
-                            email = it.email,
-                            initials = getInitials(it.name),
-                            role = Role.OWNER,
-                        )
-                }
-                memberships
-                    .filter { it.userId != project.ownerId }
-                    .forEach { membership ->
-                        userRepository.getById(membership.userId).getOrNull()?.let { user ->
-                            participantsList +=
-                                ProjectParticipantUi(
-                                    uid = user.uid,
-                                    name = user.name,
-                                    email = user.email,
-                                    initials = getInitials(user.name),
-                                    role = membership.role,
-                                )
-                        }
-                    }
-
+                // Загружаем основную инфу о проекте (разово)
                 _state.update {
                     it.copy(
                         projectId = project.id,
@@ -150,11 +124,59 @@ class ProjectDetailScreenViewModel(
                         description = project.description,
                         status = if (project.isDeleted) ProjectStatusUi.ARCHIVED else ProjectStatusUi.IN_PROGRESS,
                         ownerName = ownerName,
-                        participants = participantsList,
                         canEdit = project.ownerId == currentUid,
                         isLoading = false,
                     )
                 }
+
+                // СИНХРОНИЗАЦИЯ: Подписываемся на изменения участников
+                membersObserverJob?.cancel()
+                membersObserverJob =
+                    viewModelScope.launch {
+                        membershipRepository.observeByProjectId(projectId).collect { result ->
+                            result.fold(
+                                onSuccess = { memberships ->
+                                    val participantsList = mutableListOf<ProjectParticipantUi>()
+
+                                    // Добавляем владельца (если он найден)
+                                    ownerUser?.let {
+                                        participantsList +=
+                                            ProjectParticipantUi(
+                                                uid = it.uid,
+                                                name = it.name,
+                                                email = it.email,
+                                                initials = getInitials(it.name),
+                                                role = Role.OWNER,
+                                            )
+                                    }
+
+                                    // Добавляем остальных участников
+                                    memberships.filter { it.userId != project.ownerId }.forEach { membership ->
+                                        userRepository.getById(membership.userId).getOrNull()?.let { user ->
+                                            participantsList +=
+                                                ProjectParticipantUi(
+                                                    uid = user.uid,
+                                                    name = user.name,
+                                                    email = user.email,
+                                                    initials = getInitials(user.name),
+                                                    role = membership.role,
+                                                )
+                                        }
+                                    }
+
+                                    _state.update { it.copy(participants = participantsList) }
+                                },
+                                onFailure = { error ->
+                                    _state.update {
+                                        it.copy(
+                                            errorMessage = error.message,
+                                            errorMessageResId = if (error.message == null) R.string.error_load_projects else null,
+                                        )
+                                    }
+                                },
+                            )
+                        }
+                    }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

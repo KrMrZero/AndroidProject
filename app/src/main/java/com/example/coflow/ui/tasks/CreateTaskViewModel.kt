@@ -3,6 +3,7 @@ package com.example.coflow.ui.tasks
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.coflow.R
 import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
 import com.example.coflow.notifications.NotificationSender
@@ -78,6 +79,7 @@ data class CreateTaskUiState(
     val isLoadingProjects: Boolean = false,
     // --- Статус и ошибки ---
     val errorMessage: String? = null,
+    val errorMessageResId: Int? = null,
     val isSubmitting: Boolean = false,
 ) : AssigneeSelectionState,
     DateSelectionState,
@@ -215,7 +217,8 @@ class CreateTaskViewModel(
                 _state.update {
                     it.copy(
                         isLoadingAssignees = false,
-                        errorMessage = "Ошибка загрузки исполнителей: ${e.message ?: "неизвестная ошибка"}",
+                        errorMessage = e.message,
+                        errorMessageResId = if (e.message == null) R.string.error_load_assignees else null,
                     )
                 }
             }
@@ -238,7 +241,8 @@ class CreateTaskViewModel(
                         _state.update {
                             it.copy(
                                 isLoadingProjects = false,
-                                errorMessage = "Ошибка загрузки проектов: ${error?.message ?: "неизвестная ошибка"}",
+                                errorMessage = error?.message,
+                                errorMessageResId = if (error?.message == null) R.string.error_load_project_list else null,
                             )
                         }
                         return@launch
@@ -266,7 +270,8 @@ class CreateTaskViewModel(
                 _state.update {
                     it.copy(
                         isLoadingProjects = false,
-                        errorMessage = "Ошибка загрузки проектов: ${e.message ?: "неизвестная ошибка"}",
+                        errorMessage = e.message,
+                        errorMessageResId = if (e.message == null) R.string.error_load_project_list else null,
                     )
                 }
             }
@@ -391,7 +396,7 @@ class CreateTaskViewModel(
     fun onCreateTask(onTaskCreated: (CreateTaskFormData) -> Unit) {
         val current = _state.value
         if (current.title.isBlank()) {
-            _state.update { it.copy(errorMessage = "Название задачи не может быть пустым") }
+            _state.update { it.copy(errorMessageResId = R.string.error_empty_task_title) }
             return
         }
 
@@ -445,7 +450,8 @@ class CreateTaskViewModel(
                     _state.update {
                         it.copy(
                             isSubmitting = false,
-                            errorMessage = error.message ?: "Ошибка создания задачи",
+                            errorMessage = error.message,
+                            errorMessageResId = if (error.message == null) R.string.error_create_task else null,
                         )
                     }
                 },
