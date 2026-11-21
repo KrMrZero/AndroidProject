@@ -7,7 +7,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
+import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.notifications.NotificationSender
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.repositories.FirebaseMembershipRepositoryImpl
@@ -107,12 +109,16 @@ class EditTaskViewModel(
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
     private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
+    private val notificationSender: NotificationSender = NotificationSender(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(EditTaskUiState())
     val state: StateFlow<EditTaskUiState> = _state.asStateFlow()
 
     // Читаем taskId напрямую из аргументов навигации "edit_task/{taskId}"
     val taskId = savedStateHandle.get<String>("taskId").orEmpty()
+
+    /** Исполнители на момент открытия экрана: уведомляем только новых. */
+    private var initialAssigneeIds: Set<String> = emptySet()
 
     init {
         if (taskId.isNotBlank()) {
@@ -201,6 +207,7 @@ class EditTaskViewModel(
                             .toSet(),
                 )
             }
+            initialAssigneeIds = _state.value.pendingAssigneeIds
             loadAssignees(task.projectId)
         }
     }
@@ -419,6 +426,7 @@ class EditTaskViewModel(
         _state.update { it.copy(isSaving = true, errorMessage = null) }
 
         viewModelScope.launch {
+            val actorId = authRepository.getCurrentUserUid().orEmpty()
             val updateDto =
                 TaskUpdateDto(
                     title = current.title.trim(),
@@ -441,6 +449,16 @@ class EditTaskViewModel(
                             canSave = updated.title.isNotBlank(),
                         )
                     }
+                    // Сначала уведомления: после onTaskSaved экран закроется
+                    // и viewModelScope будет отменён.
+                    notifyAssigneeChanges(
+                        task = updated,
+                        projectName = current.project,
+                        actorId = actorId,
+                        previousAssigneeIds = initialAssigneeIds,
+                        currentAssigneeIds = current.pendingAssigneeIds,
+                    )
+                    initialAssigneeIds = current.pendingAssigneeIds
                     onTaskSaved(
                         Task(
                             id = updated.id,
@@ -464,6 +482,39 @@ class EditTaskViewModel(
                         )
                     }
                 },
+            )
+        }
+    }
+
+    /** Уведомляет о добавлении в исполнители и о снятии с задачи. */
+    private suspend fun notifyAssigneeChanges(
+        task: TaskModel,
+        projectName: String,
+        actorId: String,
+        previousAssigneeIds: Set<String>,
+        currentAssigneeIds: Set<String>,
+    ) {
+        val addedAssigneeIds = currentAssigneeIds - previousAssigneeIds
+        if (addedAssigneeIds.isNotEmpty()) {
+            notificationSender.taskAssigned(
+                taskId = task.id,
+                taskTitle = task.title,
+                projectId = task.projectId,
+                projectName = projectName,
+                actorId = actorId,
+                recipientIds = addedAssigneeIds.toList(),
+            )
+        }
+
+        val removedAssigneeIds = previousAssigneeIds - currentAssigneeIds
+        if (removedAssigneeIds.isNotEmpty()) {
+            notificationSender.taskUnassigned(
+                taskId = task.id,
+                taskTitle = task.title,
+                projectId = task.projectId,
+                projectName = projectName,
+                actorId = actorId,
+                recipientIds = removedAssigneeIds.toList(),
             )
         }
     }
@@ -493,10 +544,19 @@ class EditTaskViewModel(
         _state.update { it.copy(showDeleteDialog = false, isDeleting = true, errorMessage = null) }
 
         viewModelScope.launch {
+            val actorId = authRepository.getCurrentUserUid().orEmpty()
             val result = taskRepository.deleteTask(current.taskId)
 
             result.fold(
                 onSuccess = {
+                    notificationSender.taskDeleted(
+                        taskId = current.taskId,
+                        taskTitle = current.title,
+                        projectId = current.selectedProjectId,
+                        projectName = current.project,
+                        actorId = actorId,
+                        recipientIds = current.pendingAssigneeIds.toList(),
+                    )
                     _state.update { it.copy(isDeleting = false) }
                     onTaskDeleted(current.taskId)
                 },

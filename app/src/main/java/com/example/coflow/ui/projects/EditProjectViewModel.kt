@@ -7,6 +7,7 @@ import com.example.coflow.R
 import com.example.coflow.models.MembershipModel
 import com.example.coflow.models.Role
 import com.example.coflow.models.UserModel
+import com.example.coflow.notifications.NotificationSender
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.repositories.FirebaseMembershipRepositoryImpl
@@ -60,6 +61,7 @@ class EditProjectViewModel(
     private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val notificationSender: NotificationSender = NotificationSender(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(EditProjectUiState())
     val state: StateFlow<EditProjectUiState> = _state.asStateFlow()
@@ -68,6 +70,10 @@ class EditProjectViewModel(
 
     // Кэш пользователей, чтобы не дёргать Firestore повторно
     private val userCache = mutableMapOf<String, UserModel>()
+
+    /** Значения на момент загрузки: по ним понимаем, что проект реально изменили. */
+    private var initialTitle: String = ""
+    private var initialDescription: String = ""
 
     init {
         if (projectId.isBlank()) {
@@ -108,6 +114,8 @@ class EditProjectViewModel(
                         members = membersUi,
                     )
                 }
+                initialTitle = project.title
+                initialDescription = project.description
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -162,12 +170,24 @@ class EditProjectViewModel(
     }
 
     fun removeMember(membershipId: String) {
+        val member = _state.value.members.firstOrNull { it.membershipId == membershipId }
+        val actorId = authRepository.getCurrentUserUid().orEmpty()
+        val projectTitle = _state.value.title
+
         viewModelScope.launch {
             try {
                 membershipRepository.deleteMember(membershipId).fold(
                     onSuccess = {
                         _state.update { state ->
                             state.copy(members = state.members.filterNot { it.membershipId == membershipId })
+                        }
+                        if (member != null) {
+                            notificationSender.removedFromProject(
+                                projectId = _state.value.projectId,
+                                projectTitle = projectTitle,
+                                actorId = actorId,
+                                recipientId = member.userId,
+                            )
                         }
                     },
                     onFailure = { error -> _state.update { it.copyError(error) } },
@@ -184,6 +204,10 @@ class EditProjectViewModel(
         membershipId: String,
         newRole: Role,
     ) {
+        val member = _state.value.members.firstOrNull { it.membershipId == membershipId }
+        val actorId = authRepository.getCurrentUserUid().orEmpty()
+        val projectTitle = _state.value.title
+
         viewModelScope.launch {
             try {
                 membershipRepository
@@ -198,6 +222,15 @@ class EditProjectViewModel(
                                         state.members.map { member ->
                                             if (member.membershipId == updated.id) member.copy(role = updated.role) else member
                                         },
+                                )
+                            }
+                            if (member != null && member.role != updated.role) {
+                                notificationSender.roleChanged(
+                                    projectId = _state.value.projectId,
+                                    projectTitle = projectTitle,
+                                    actorId = actorId,
+                                    recipientId = member.userId,
+                                    role = updated.role,
                                 )
                             }
                         },
@@ -225,6 +258,7 @@ class EditProjectViewModel(
 
         viewModelScope.launch {
             try {
+                val actorId = authRepository.getCurrentUserUid().orEmpty()
                 val updateDto =
                     ProjectUpdateDto(
                         title = current.title.trim(),
@@ -232,6 +266,22 @@ class EditProjectViewModel(
                     )
                 projectRepository.updateProject(current.projectId, updateDto).fold(
                     onSuccess = { updated ->
+                        // Уведомляем до isProjectSaved: по этому флагу экран
+                        // закрывается, а вместе с ним отменяется viewModelScope.
+                        val changed =
+                            updated.title != initialTitle ||
+                                updated.description != initialDescription
+                        if (changed) {
+                            notificationSender.projectUpdated(
+                                projectId = updated.id,
+                                projectTitle = updated.title,
+                                actorId = actorId,
+                                recipientIds = _state.value.members.map { it.userId },
+                            )
+                            initialTitle = updated.title
+                            initialDescription = updated.description
+                        }
+
                         _state.update {
                             it.copy(
                                 title = updated.title,
@@ -280,8 +330,15 @@ class EditProjectViewModel(
 
         viewModelScope.launch {
             try {
+                val actorId = authRepository.getCurrentUserUid().orEmpty()
                 projectRepository.deleteProject(current.projectId).fold(
                     onSuccess = {
+                        notificationSender.projectDeleted(
+                            projectId = current.projectId,
+                            projectTitle = current.title,
+                            actorId = actorId,
+                            recipientIds = current.members.map { it.userId },
+                        )
                         _state.update { it.copy(isProjectDeleted = true) }
                     },
                     onFailure = { error -> _state.update { it.copyError(error) } },
