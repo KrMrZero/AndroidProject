@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,7 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.coflow.ui.theme.CoFlowColors
@@ -195,4 +199,100 @@ fun CoFlowBottomNavigationBar(
             }
         }
     }
+}
+
+// =====================================================
+// ЭЛЕМЕНТЫ ПРОФИЛЯ
+// Используются экранами профиля, редактирования и уведомлений.
+// =====================================================
+
+/**
+ * Круглая «таблетка» с иконкой: используется справа в строках меню
+ * («Выйти из аккаунта», «Сменить пароль») и в карточке пользователя («карандаш»).
+ */
+@Composable
+fun ProfileIconBadge(
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    tint: Color = CoFlowColors.Blue,
+    containerColor: Color = CoFlowColors.Blue.copy(alpha = 0.10f),
+    containerSize: Dp = 36.dp,
+    iconSize: Dp = 18.dp,
+) {
+    Box(
+        modifier =
+            modifier
+                .size(containerSize)
+                .clip(CircleShape)
+                .background(containerColor),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(iconSize),
+            tint = tint,
+        )
+    }
+}
+
+/**
+ * Строка меню внутри стеклянной карточки.
+ *
+ * @param leadingIcon иконка слева (необязательная);
+ * @param trailing содержимое справа (обычно [ProfileIconBadge]).
+ */
+@Composable
+fun ProfileMenuRow(
+    title: String,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null,
+    iconTint: Color = CoFlowColors.TextPrimary,
+    titleColor: Color = CoFlowColors.TextPrimary,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(clickModifier)
+                .padding(horizontal = 4.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leadingIcon != null) {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = iconTint,
+            )
+            Spacer(Modifier.width(12.dp))
+        }
+
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = titleColor,
+        )
+
+        if (trailing != null) {
+            Spacer(Modifier.width(10.dp))
+            trailing()
+        }
+    }
+}
+
+/** Разделитель между строками меню. */
+@Composable
+fun ProfileMenuDivider(modifier: Modifier = Modifier) {
+    HorizontalDivider(
+        modifier = modifier.padding(horizontal = 4.dp),
+        thickness = 1.dp,
+        color = CoFlowColors.TextSecondary.copy(alpha = 0.12f),
+    )
 }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
 import com.example.coflow.models.Role
+import com.example.coflow.notifications.NotificationSender
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.repositories.FirebaseMembershipRepositoryImpl
@@ -55,6 +56,7 @@ class CreateProjectViewModel(
     private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val notificationSender: NotificationSender = NotificationSender(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(CreateProjectUiState())
     val state: StateFlow<CreateProjectUiState> = _state.asStateFlow()
@@ -128,7 +130,13 @@ class CreateProjectViewModel(
                         ),
                     ).fold(
                         onSuccess = { project ->
-                            val unresolvedEmails = addParticipants(project.id, current.participants)
+                            val unresolvedEmails =
+                                addParticipants(
+                                    projectId = project.id,
+                                    projectTitle = title,
+                                    ownerId = ownerId,
+                                    participants = current.participants,
+                                )
                             _state.update { it.copy(isSubmitting = false) }
                             onProjectCreated(
                                 CreateProjectResult(
@@ -163,9 +171,12 @@ class CreateProjectViewModel(
 
     private suspend fun addParticipants(
         projectId: String,
+        projectTitle: String,
+        ownerId: String,
         participants: List<ProjectParticipant>,
     ): List<String> {
         val unresolved = mutableListOf<String>()
+        val addedUserIds = mutableListOf<String>()
 
         participants.forEach { participant ->
             try {
@@ -183,7 +194,9 @@ class CreateProjectViewModel(
                             userId = user.uid,
                             role = Role.MEMBER,
                         ),
-                    ).onFailure {
+                    ).onSuccess {
+                        addedUserIds += user.uid
+                    }.onFailure {
                         unresolved += participant.email
                     }
             } catch (e: CancellationException) {
@@ -192,6 +205,14 @@ class CreateProjectViewModel(
                 unresolved += participant.email
             }
         }
+
+        // Приглашённый узнаёт о проекте сразу после появления членства.
+        notificationSender.addedToProject(
+            projectId = projectId,
+            projectTitle = projectTitle,
+            actorId = ownerId,
+            recipientIds = addedUserIds,
+        )
 
         return unresolved
     }

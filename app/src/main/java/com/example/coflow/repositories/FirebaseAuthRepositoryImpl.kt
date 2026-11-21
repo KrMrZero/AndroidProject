@@ -1,8 +1,10 @@
 package com.example.coflow.repositories
 
 import com.example.coflow.models.UserModel
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.GoogleAuthProvider
@@ -148,4 +150,54 @@ class FirebaseAuthRepositoryImpl : AuthRepository {
     }
 
     override fun getCurrentUserUid(): String? = auth.currentUser?.uid
+
+    override suspend fun deleteAccount(password: String): Result<Unit> =
+        try {
+            val user = auth.currentUser ?: throw Exception("Пользователь не авторизован")
+            val email = user.email ?: throw Exception("У аккаунта нет почты")
+
+            if (password.isBlank()) {
+                throw Exception("Введите пароль")
+            }
+
+            // Firebase разрешает удаление только после недавнего входа,
+            // поэтому подтверждаем личность паролем.
+            user.reauthenticate(EmailAuthProvider.getCredential(email, password)).await()
+
+            val uid = user.uid
+
+            // 1. Участие в проектах
+            val memberships =
+                db
+                    .collection("memberships")
+                    .whereEqualTo("userId", uid)
+                    .get()
+                    .await()
+                    .documents
+            memberships.forEach { it.reference.delete().await() }
+
+            // 2. Уведомления пользователя — чтобы не осталось мусора
+            val notifications =
+                db
+                    .collection("notifications")
+                    .whereEqualTo("userId", uid)
+                    .get()
+                    .await()
+                    .documents
+            notifications.forEach { it.reference.delete().await() }
+
+            // 3. Профиль пользователя
+            usersCollection.document(uid).delete().await()
+
+            // 4. Сам аккаунт Firebase Auth
+            user.delete().await()
+
+            Result.success(Unit)
+        } catch (e: FirebaseAuthRecentLoginRequiredException) {
+            Result.failure(Exception("Сессия устарела. Войдите заново и повторите удаление"))
+        } catch (e: FirebaseAuthInvalidCredentialsException) {
+            Result.failure(Exception("Неверный пароль"))
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Не удалось удалить аккаунт"))
+        }
 }

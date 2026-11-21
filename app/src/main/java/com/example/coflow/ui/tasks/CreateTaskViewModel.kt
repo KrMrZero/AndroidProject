@@ -4,7 +4,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.coflow.R
+import com.example.coflow.models.TaskModel
 import com.example.coflow.models.TaskStatus
+import com.example.coflow.notifications.NotificationSender
 import com.example.coflow.repositories.AuthRepository
 import com.example.coflow.repositories.FirebaseAuthRepositoryImpl
 import com.example.coflow.repositories.FirebaseMembershipRepositoryImpl
@@ -132,6 +134,7 @@ class CreateTaskViewModel(
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
     private val membershipRepository: MembershipRepository = FirebaseMembershipRepositoryImpl(),
     private val userRepository: UserRepository = FirebaseUserRepositoryImpl(),
+    private val notificationSender: NotificationSender = NotificationSender(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(CreateTaskUiState())
     val state: StateFlow<CreateTaskUiState> = _state.asStateFlow()
@@ -430,8 +433,9 @@ class CreateTaskViewModel(
             val result = taskRepository.addTask(taskDto)
 
             result.fold(
-                onSuccess = {
+                onSuccess = { task ->
                     _state.update { it.copy(isSubmitting = false) }
+                    notifyAssignees(task, authorId, current.project)
                     onTaskCreated(
                         CreateTaskFormData(
                             title = current.title.trim(),
@@ -457,5 +461,29 @@ class CreateTaskViewModel(
 
     fun clearError() {
         _state.update { it.copy(errorMessage = null) }
+    }
+
+    /**
+     * Уведомляет исполнителей о назначенной задаче.
+     *
+     * Запись создаёт клиент после успешного сохранения задачи. Ошибка
+     * уведомления не должна отменять создание задачи, поэтому
+     * [NotificationSender] не пробрасывает её наружу.
+     */
+    private suspend fun notifyAssignees(
+        task: TaskModel,
+        authorId: String,
+        projectTitle: String,
+    ) {
+        if (authorId.isBlank()) return
+
+        notificationSender.taskAssigned(
+            taskId = task.id,
+            taskTitle = task.title,
+            projectId = task.projectId,
+            projectName = projectTitle,
+            actorId = authorId,
+            recipientIds = _state.value.assignees.map { it.id },
+        )
     }
 }

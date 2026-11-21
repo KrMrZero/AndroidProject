@@ -177,7 +177,12 @@ fun AuthRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.isAuthorized) {
-        if (state.isAuthorized) onAuthSuccess()
+        if (state.isAuthorized) {
+            // Сначала гасим флаг, иначе при следующем показе экрана входа
+            // он снова отправит пользователя в приложение после логаута.
+            viewModel.consumeAuthorization()
+            onAuthSuccess()
+        }
     }
     AuthScreen(
         state = state,
