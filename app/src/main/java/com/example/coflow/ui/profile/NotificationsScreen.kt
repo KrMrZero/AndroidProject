@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,8 +47,12 @@ import com.example.coflow.ui.theme.coFlowTasksBackgroundBrush
  * Экран общий для всех колокольчиков приложения: он не создаёт свой ViewModel,
  * если его передали из MainActivity.
  *
- * Осталось: переход по клику на задачу/проект, пагинация(огромное кол-во чтений базы,
- *  когда много уведов у всех) при большом количестве уведомлений, напоминания о дедлайнах и push.
+ * Список берётся из памяти или локального кэша Firestore (0 чтений),
+ * с сервера запрашиваются только новые уведомления; «Показать ещё»
+ * догружает старые страницы. Открытие экрана сдвигает отметку
+ * прочитанности в `users/{uid}` — прочитать всё стоит одну запись.
+ *
+ * Осталось: переход по клику на задачу/проект, напоминания о дедлайнах и push.
  */
 
 /**
@@ -58,11 +65,21 @@ fun NotificationsRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // Пока экран открыт, загружаем первую страницу и помечаем прочитанным.
+    LaunchedEffect(viewModel) {
+        viewModel.openScreen()
+    }
+
+    // После ухода обновляем только счётчик: за время просмотра могли прийти новые.
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.refreshUnread() }
+    }
+
     NotificationsScreen(
         state = state,
         onBackClick = onNavigateBack,
         onMarkAllAsRead = viewModel::markAllAsRead,
-        onNotificationClick = viewModel::markAsRead,
+        onLoadMore = viewModel::loadMore,
     )
 }
 
@@ -71,7 +88,7 @@ fun NotificationsScreen(
     state: NotificationsUiState,
     onBackClick: () -> Unit,
     onMarkAllAsRead: () -> Unit,
-    onNotificationClick: (String) -> Unit,
+    onLoadMore: () -> Unit,
 ) {
     BackHandler(onBack = onBackClick)
 
@@ -124,10 +141,35 @@ fun NotificationsScreen(
                         contentPadding = PaddingValues(bottom = 12.dp),
                     ) {
                         items(state.notifications, key = { it.id }) { notification ->
-                            NotificationCard(
-                                notification = notification,
-                                onClick = { onNotificationClick(notification.id) },
-                            )
+                            NotificationCard(notification = notification)
+                        }
+
+                        if (state.hasMore) {
+                            item(key = "load_more") {
+                                if (state.isLoadingMore) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = CoFlowColors.TextSecondary,
+                                        )
+                                    }
+                                } else {
+                                    TextButton(
+                                        onClick = onLoadMore,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text(
+                                            text = "Показать ещё",
+                                            fontSize = 14.sp,
+                                            textAlign = TextAlign.Center,
+                                            color = CoFlowColors.TextPrimary,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -155,15 +197,11 @@ fun NotificationsScreen(
 
 /** Карточка одного уведомления. */
 @Composable
-private fun NotificationCard(
-    notification: NotificationUi,
-    onClick: () -> Unit,
-) {
+private fun NotificationCard(notification: NotificationUi) {
     CoFlowGlassCard(
         modifier = Modifier.fillMaxWidth(),
         // Фронтенд просил не синий: карточки в тон светлому фону приложения.
         containerColor = Color(0xFFF2F6FF),
-        onClick = onClick,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
@@ -220,7 +258,7 @@ private fun NotificationsScreenPreview() {
                 ),
             onBackClick = {},
             onMarkAllAsRead = {},
-            onNotificationClick = {},
+            onLoadMore = {},
         )
     }
 }
