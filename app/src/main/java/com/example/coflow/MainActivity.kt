@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +20,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -120,7 +124,21 @@ class MainActivity : ComponentActivity() {
                         // останутся данные предыдущего пользователя.
                         LaunchedEffect(Unit) {
                             tasksViewModel.refresh()
-                            notificationsViewModel.subscribe()
+                        }
+
+                        // Счётчик непрочитанных обновляем при каждом возврате
+                        // в приложение: это один документ пользователя плюс агрегат,
+                        // а не чтение всего списка уведомлений.
+                        val lifecycleOwner = LocalLifecycleOwner.current
+                        DisposableEffect(lifecycleOwner) {
+                            val observer =
+                                LifecycleEventObserver { _, event ->
+                                    if (event == Lifecycle.Event.ON_RESUME) {
+                                        notificationsViewModel.refreshUnread()
+                                    }
+                                }
+                            lifecycleOwner.lifecycle.addObserver(observer)
+                            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                         }
 
                         val notificationsHandler: (String) -> Unit =
@@ -131,6 +149,15 @@ class MainActivity : ComponentActivity() {
 
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
                         val currentRoute = navBackStackEntry?.destination?.route
+
+                        // Колокольчик обновляем при переходах между экранами:
+                        // один документ пользователя плюс агрегат, без списка.
+                        // На экране уведомлений счётчик обновляет сам экран.
+                        LaunchedEffect(currentRoute) {
+                            if (currentRoute != null && currentRoute != Screen.NOTIFICATIONS) {
+                                notificationsViewModel.refreshUnread()
+                            }
+                        }
 
                         val showBottomBar =
                             currentRoute == Screen.TASKS ||
